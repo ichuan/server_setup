@@ -1,4 +1,4 @@
-Quickly Setup A Production Server
+Quickly setup a ubuntu server
 
 ## Environment and Tune
 + ichuan/dotfiles
@@ -35,5 +35,5 @@ fab -H host1 setup
 fab -H host1 setup:env
 # setup specific software(s)
 fab -H host1 setup:mysql
-fab -h host1 setup:nodejs,mysql
+fab -H host1 setup:nodejs,mysql
 ```

@@ -91,12 +91,18 @@ def _setup_letsencrypt():
 
 
 def _setup_nodejs():
-    dist_url = 'https://nodejs.org/dist/v7.3.0/node-v7.3.0-linux-x64.tar.xz'
+    filename = run(
+        "curl -s https://nodejs.org/dist/latest/SHASUMS256.txt | "
+        "grep linux-x64.tar.xz | awk '{print $2}'"
+    )
+    dist_url = 'https://nodejs.org/dist/latest/%s' % filename.strip()
     run('wget -O /tmp/node.tar.xz %s' % dist_url)
     sudo(
         'tar -C /usr/ --exclude CHANGELOG.md --exclude LICENSE '
         '--exclude README.md --strip-components 1 -xf /tmp/node.tar.xz'
     )
+    # can listening on 80 and 443
+    sudo('setcap cap_net_bind_service=+ep /usr/bin/node')
 
 
 def _setup_yarn():

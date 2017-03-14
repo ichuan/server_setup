@@ -70,7 +70,7 @@ def _setup_required(version=None, is_64bit=False):
     sudo(
         'apt-get install -y git unzip unrar curl wget tar sudo zip python-pip '
         'python-virtualenv sqlite3 tmux ntp build-essential uwsgi gettext '
-        'uwsgi-plugin-python'
+        'uwsgi-plugin-python ack-grep htop'
     )
     # pillow reqs
     sudo(
@@ -136,7 +136,7 @@ def _setup_yarn():
         'echo "deb https://dl.yarnpkg.com/debian/ stable main" | '
         'tee /etc/apt/sources.list.d/yarn.list'
     )
-    sudo('apt-get update && apt-get install yarn')
+    sudo('apt-get update && apt-get install -y yarn')
 
 
 def _setup_mysql():

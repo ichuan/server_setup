@@ -58,7 +58,8 @@ def _setup_env():
     # dotfiles
     run(
         '[ ! -f ~/.tmux.conf ] && { '
-        'git clone --recursive https://github.com/ichuan/dotfiles.git '
+        'git clone -b minimal --single-branch --recursive '
+        'https://github.com/ichuan/dotfiles.git '
         "&& echo 'y' | bash dotfiles/bootstrap.sh; }",
         warn_only=True
     )

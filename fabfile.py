@@ -4,7 +4,7 @@
 
 from fabric.api import run, env, sudo, put
 from fabric.api import reboot as restart
-from distutils.version import LooseVersion
+from distutils.version import LooseVersion as _V
 
 env.use_ssh_config = True
 env.colorize_errors = True
@@ -72,7 +72,7 @@ def _setup_env():
     )
     # rc.local after 15.04
     # https://wiki.ubuntu.com/SystemdForUpstartUsers
-    if LooseVersion(sysinfo['release']) >= LooseVersion('15.04'):
+    if _V(sysinfo['release']) >= _V('15.04'):
         _enable_rc_local()
 
 

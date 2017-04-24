@@ -210,3 +210,20 @@ def _enable_rc_local():
         run("sed -i '1s/^/#!\/bin\/sh \\n/' /etc/rc.local")
     sudo('chmod +x /etc/rc.local')
     sudo('systemctl enable rc-local')
+
+
+def _setup_nginx():
+    if run('which nginx', warn_only=True).succeeded:
+        print 'Already installed nginx'
+        return
+    sysinfo = _get_ubuntu_info()
+    # key
+    sudo('curl https://nginx.org/keys/nginx_signing.key | apt-key add -')
+    # repo
+    sudo(
+        'echo -e "deb http://nginx.org/packages/ubuntu/ %s nginx\\n'
+        'deb-src http://nginx.org/packages/ubuntu/ %s nginx" | tee '
+        '/etc/apt/sources.list.d/nginx.list'
+        % (sysinfo['codename'], sysinfo['codename'])
+    )
+    sudo('apt-get update && apt-get install -y nginx')

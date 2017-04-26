@@ -19,6 +19,7 @@ Quickly setup a ubuntu server
 + build-essential
 + pillow reqs
 + uwsgi
++ nginx
 
 
 ## Optional Softwares

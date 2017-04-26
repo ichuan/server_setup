@@ -13,12 +13,12 @@ WGET_TRIES = 3
 G = {}
 
 
-def setup(what=''):
+def setup(*what):
     '''
     Fresh setup. Optional argument: letsencrypt, nodejs, yarn, mysql, mongodb
     '''
     if what:
-        for name in what.split(','):
+        for name in what:
             func = globals().get('_setup_%s' % name, None)
             if func is None:
                 print 'No such task: %s' % name
@@ -79,7 +79,7 @@ def _setup_env():
 def _setup_required():
     # git and utils
     sudo(
-        'apt-get install -y git unzip unrar curl wget tar sudo zip python-pip '
+        'apt-get install -y git unzip curl wget tar sudo zip python-pip '
         'python-virtualenv sqlite3 tmux ntp build-essential uwsgi gettext '
         'uwsgi-plugin-python ack-grep htop python-setuptools'
     )
@@ -227,3 +227,4 @@ def _setup_nginx():
         % (sysinfo['codename'], sysinfo['codename'])
     )
     sudo('apt-get update && apt-get install -y nginx')
+    put('nginx.conf.example', '/etc/nginx/conf.d/', use_sudo=True)

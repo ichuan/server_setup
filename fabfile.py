@@ -4,6 +4,7 @@
 
 from fabric.api import run, env, sudo, put
 from fabric.api import reboot as restart
+from fabric.contrib.files import append, contains, comment
 from distutils.version import LooseVersion as _V
 
 env.use_ssh_config = True
@@ -74,6 +75,16 @@ def _setup_env():
     # https://wiki.ubuntu.com/SystemdForUpstartUsers
     if _V(sysinfo['release']) >= _V('15.04'):
         _enable_rc_local()
+    # sysctl.conf
+    _sysctl()
+
+
+def _sysctl():
+    path = '/etc/sysctl.conf'
+    if not contains(path, 'vm.overcommit_memory = 1'):
+        sudo('echo -e "vm.overcommit_memory = 1" >> %s' % path)
+    if not contains(path, 'net.core.somaxconn = 65535'):
+        sudo('echo -e "net.core.somaxconn = 65535" >> %s' % path)
 
 
 def _setup_required():
@@ -88,6 +99,8 @@ def _setup_required():
         'apt-get install -y libtiff5-dev libjpeg8-dev zlib1g-dev liblcms2-dev '
         'libfreetype6-dev libwebp-dev tcl8.6-dev tk8.6-dev python-tk'
     )
+    # add-apt-repository
+    sudo('apt-get install -y software-properties-common', warn_only=True)
     # letsencrypt
     # _setup_letsencrypt()
     # nodejs
@@ -202,13 +215,20 @@ def _setup_mongodb():
 
 
 def _enable_rc_local():
+    rc_local = '/etc/rc.local'
     put('rc-local.service', '/etc/systemd/system/', use_sudo=True)
-    sudo('touch /etc/rc.local')
+    sudo('touch %s' % rc_local)
     if run(
-        "head -1 /etc/rc.local | grep -q '^#!\/bin\/sh '", warn_only=True
+        "head -1 %s | grep -q '^#!\/bin\/sh '" % rc_local, warn_only=True
     ).failed:
-        run("sed -i '1s/^/#!\/bin\/sh \\n/' /etc/rc.local")
-    sudo('chmod +x /etc/rc.local')
+        run("sed -i '1s/^/#!\/bin\/sh \\n/' %s" % rc_local)
+    if not contains(rc_local, '/sys/kernel/mm/transparent_hugepage'):
+        comment(rc_local, '^exit 0')
+        append(rc_local, [
+            'echo never > /sys/kernel/mm/transparent_hugepage/enabled',
+            'exit 0'
+        ])
+    sudo('chmod +x %s' % rc_local)
     sudo('systemctl enable rc-local')
 
 

@@ -16,7 +16,7 @@ G = {}
 
 def setup(*what):
     '''
-    Fresh setup. Optional argument: letsencrypt, nodejs, yarn, mysql, mongodb
+    Fresh setup. Optional argument: letsencrypt, nodejs, yarn, mysql, mongodb, redis
     '''
     if what:
         for name in what:
@@ -248,3 +248,10 @@ def _setup_nginx():
     )
     sudo('apt-get update && apt-get install -y nginx')
     put('nginx.conf.example', '/etc/nginx/conf.d/', use_sudo=True)
+
+
+def _setup_redis():
+    if run('which redis-server', warn_only=True).succeeded:
+        print 'Already installed redis'
+        return
+    sudo('apt-get install redis-server -y')

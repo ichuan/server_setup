@@ -4,7 +4,7 @@
 
 from fabric.api import run, env, sudo, put
 from fabric.api import reboot as restart
-from fabric.contrib.files import append, contains, comment
+from fabric.contrib.files import append, contains, comment, sed
 from distutils.version import LooseVersion as _V
 
 env.use_ssh_config = True
@@ -16,7 +16,8 @@ G = {}
 
 def setup(*what):
     '''
-    Fresh setup. Optional argument: letsencrypt, nodejs, yarn, mysql, mongodb, redis
+    Fresh setup. Optional argument:
+        letsencrypt, nodejs, yarn, mysql, mongodb, redis
     '''
     if what:
         for name in what:
@@ -222,12 +223,9 @@ def _enable_rc_local():
         "head -1 %s | grep -q '^#!\/bin\/sh '" % rc_local, warn_only=True
     ).failed:
         run("sed -i '1s/^/#!\/bin\/sh \\n/' %s" % rc_local)
-    if not contains(rc_local, '/sys/kernel/mm/transparent_hugepage'):
-        comment(rc_local, '^exit 0')
-        append(rc_local, [
-            'echo never > /sys/kernel/mm/transparent_hugepage/enabled',
-            'exit 0'
-        ])
+    _append_rc_local(
+        'echo never > /sys/kernel/mm/transparent_hugepage/enabled'
+    )
     sudo('chmod +x %s' % rc_local)
     sudo('systemctl enable rc-local')
 
@@ -255,3 +253,10 @@ def _setup_redis():
         print 'Already installed redis'
         return
     sudo('apt-get install redis-server -y')
+
+
+def _append_rc_local(cmd):
+    rc_local = '/etc/rc.local'
+    comment(rc_local, r'^exit 0', use_sudo=True)
+    append(rc_local, [cmd, 'exit 0'], use_sudo=True)
+    sed(rc_local, '^#exit 0.*', '', use_sudo=True, backup='')

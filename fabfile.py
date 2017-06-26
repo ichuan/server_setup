@@ -255,6 +255,31 @@ def _setup_redis():
     sudo('apt-get install redis-server -y')
 
 
+def _setup_docker():
+    # https://docs.docker.com/engine/installation/linux/ubuntu/
+    if run('which docker', warn_only=True).succeeded:
+        print 'Already installed docker'
+        return
+    sysinfo = _get_ubuntu_info()
+    if sysinfo['release'] == '14.04':
+        sudo('apt-get update')
+        sudo('apt-get install -y linux-image-extra-virtual '
+             'linux-image-extra-$(uname -r)')
+    sudo(
+        'apt-get install -y apt-transport-https ca-certificates '
+        'software-properties-common'
+    )
+    sudo(
+        'curl -fsSL https://download.docker.com/linux/ubuntu/gpg | '
+        'apt-key add -'
+    )
+    sudo(
+        'add-apt-repository -y "deb [arch=amd64] '
+        'https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"'
+    )
+    sudo('apt-get update && apt-get install -y docker-ce')
+
+
 def _append_rc_local(cmd):
     rc_local = '/etc/rc.local'
     comment(rc_local, r'^exit 0', use_sudo=True)

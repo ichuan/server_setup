@@ -16,8 +16,8 @@ G = {}
 
 def setup(*what):
     '''
-    Fresh setup. Optional argument:
-        letsencrypt, nodejs, yarn, mysql, mongodb, redis
+    Fresh setup. Optional arguments: \
+    letsencrypt, nodejs, yarn, mysql, mongodb, redis, mariadb
     '''
     if what:
         for name in what:
@@ -285,3 +285,34 @@ def _append_rc_local(cmd):
     comment(rc_local, r'^exit 0', use_sudo=True)
     append(rc_local, [cmd, 'exit 0'], use_sudo=True)
     sed(rc_local, '^#exit 0.*', '', use_sudo=True, backup='')
+
+
+def _setup_mariadb():
+    if run('which mysqld', warn_only=True).succeeded:
+        print 'Already installed mysql/mariadb'
+        return
+    # user/password => root/root
+    sudo(
+        "debconf-set-selections <<< 'mariadb-server mysql-server/"
+        "root_password password root'"
+    )
+    sudo(
+        "debconf-set-selections <<< 'mariadb-server mysql-server/"
+        "root_password_again password root'"
+    )
+    # https://mariadb.com/kb/en/mariadb/installing-mariadb-deb-files/
+    sysinfo = _get_ubuntu_info()
+    key = '0xcbcb082a1bb943db'
+    if _V(sysinfo['release']) >= _V('16.04'):
+        key = '0xF1656F24C74CD1D8'
+    sudo(
+        'apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 %s'
+        % key
+    )
+    sudo('apt-get install -y software-properties-common')
+    sudo(
+        "add-apt-repository -y 'deb http://ftp.osuosl.org/pub/mariadb/repo/"
+        "10.0/ubuntu %s main'" % sysinfo['codename']
+    )
+    sudo('apt-get update')
+    sudo('apt-get install -y mariadb-server')

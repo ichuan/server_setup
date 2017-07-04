@@ -312,7 +312,7 @@ def _setup_mariadb():
     sudo('apt-get install -y software-properties-common')
     sudo(
         "add-apt-repository -y 'deb http://ftp.osuosl.org/pub/mariadb/repo/"
-        "10.0/ubuntu %s main'" % sysinfo['codename']
+        "10.2/ubuntu %s main'" % sysinfo['codename']
     )
     sudo('apt-get update')
-    sudo('apt-get install -y mariadb-server')
+    sudo('apt-get install -y mariadb-server libmysqld-dev')

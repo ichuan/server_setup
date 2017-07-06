@@ -117,24 +117,19 @@ def _setup_optional():
 
 def _setup_letsencrypt():
     # https://certbot.eff.org/
-    sysinfo = _get_ubuntu_info()
-    bin_name = ''
-    if sysinfo['release'] == '16.04':
-        run('apt-get install -y letsencrypt')
-        bin_name = 'letsencrypt'
-    elif sysinfo['release'] == '16.10':
-        run('apt-get install -y certbot')
-        bin_name = 'certbot'
-    else:
-        bin_name = '~/certbot-auto'
-        run('rm -f %s' % bin_name, warn_only=True)
-        run(
-            'wget https://dl.eff.org/certbot-auto -O %s --tries %s'
-            % (bin_name, WGET_TRIES)
-        )
-        run('chmod a+x %s' % bin_name)
+    bin_name = '/usr/bin/certbot-auto'
+    sudo(
+        'wget https://dl.eff.org/certbot-auto -O %s --tries %s'
+        % (bin_name, WGET_TRIES),
+        warn_only=True
+    )
+    sudo('chmod +x %s' % bin_name)
     print '-' * 56
-    print 'Usage: letsencrypt certonly -d example.com -d www.example.com'
+    print 'Usage:'
+    print '  new: certbot-auto -d example.com -d www.example.com --nginx'
+    print 'renew: certbot-auto renew --no-self-upgrade'
+    print 'Crontab:'
+    print '0 0 * * * %s renew --quiet --no-self-upgrade' % bin_name
     print '-' * 56
 
 

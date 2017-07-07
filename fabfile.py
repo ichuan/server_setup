@@ -283,8 +283,11 @@ def _append_rc_local(cmd):
 
 
 def _setup_mariadb():
-    if run('which mysqld', warn_only=True).succeeded:
-        print 'Already installed mysql/mariadb'
+    '''
+    can be used to migrate mysql to mariadb
+    '''
+    if run('test -f /etc/mysql/conf.d/mariadb.cnf ', warn_only=True).succeeded:
+        print 'Already installed mariadb'
         return
     # user/password => root/root
     sudo(
@@ -310,4 +313,5 @@ def _setup_mariadb():
         "10.2/ubuntu %s main'" % sysinfo['codename']
     )
     sudo('apt-get update')
-    sudo('apt-get install -y mariadb-server libmysqld-dev')
+    sudo('service mysql stop', warn_only=True)
+    sudo('apt-get install -y mariadb-server libmysqld-dev', warn_only=True)

@@ -52,7 +52,7 @@ def _get_ubuntu_info():
 
 
 def _setup_aptget():
-    sudo('apt-get update && apt-get upgrade -y')
+    sudo('apt-get update -qq && apt-get upgrade -qq')
 
 
 def _setup_env():
@@ -91,17 +91,17 @@ def _sysctl():
 def _setup_required():
     # git and utils
     sudo(
-        'apt-get install -y git unzip curl wget tar sudo zip python-pip '
+        'apt-get install -qq git unzip curl wget tar sudo zip python-pip '
         'python-virtualenv sqlite3 tmux ntp build-essential uwsgi gettext '
         'uwsgi-plugin-python ack-grep htop python-setuptools'
     )
     # pillow reqs
     sudo(
-        'apt-get install -y libtiff5-dev libjpeg8-dev zlib1g-dev liblcms2-dev '
+        'apt-get install -qq libtiff5-dev libjpeg8-dev zlib1g-dev liblcms2-dev '
         'libfreetype6-dev libwebp-dev tcl8.6-dev tk8.6-dev python-tk'
     )
     # add-apt-repository
-    sudo('apt-get install -y software-properties-common', warn_only=True)
+    sudo('apt-get install -qq software-properties-common', warn_only=True)
     # letsencrypt
     # _setup_letsencrypt()
     # nodejs
@@ -124,12 +124,16 @@ def _setup_letsencrypt():
         warn_only=True
     )
     sudo('chmod +x %s' % bin_name)
+    path = run('echo $PATH')
     print '-' * 56
     print 'Usage:'
     print '  new: certbot-auto -d example.com -d www.example.com --nginx'
     print 'renew: certbot-auto renew --no-self-upgrade'
     print 'Crontab:'
-    print '0 0 * * * %s renew --quiet --no-self-upgrade' % bin_name
+    print (
+        '0 0 * * * PATH=%s %s renew -n --nginx --no-self-upgrade '
+        '>> /tmp/certbot.log 2>&1' % (path, bin_name)
+    )
     print '-' * 56
 
 
@@ -167,7 +171,7 @@ def _setup_yarn():
         'echo "deb https://dl.yarnpkg.com/debian/ stable main" | '
         'tee /etc/apt/sources.list.d/yarn.list'
     )
-    sudo('apt-get update && apt-get install -y yarn')
+    sudo('apt-get update -qq && apt-get install -qq yarn')
 
 
 def _setup_mysql():
@@ -184,7 +188,7 @@ def _setup_mysql():
         "root_password_again password root'"
     )
     sudo(
-        'apt-get install -y libmysqld-dev mysql-server mysql-client '
+        'apt-get install -qq libmysqld-dev mysql-server mysql-client '
         'libmysqlclient-dev'
     )
 
@@ -207,7 +211,7 @@ def _setup_mongodb():
         '/etc/apt/sources.list.d/mongodb-org-3.4.list'
         % sysinfo['codename']
     )
-    sudo('apt-get update && apt-get install -y mongodb-org')
+    sudo('apt-get update -qq && apt-get install -qq mongodb-org')
 
 
 def _enable_rc_local():
@@ -239,7 +243,7 @@ def _setup_nginx():
         '/etc/apt/sources.list.d/nginx.list'
         % (sysinfo['codename'], sysinfo['codename'])
     )
-    sudo('apt-get update && apt-get install -y nginx')
+    sudo('apt-get update -qq && apt-get install -qq nginx')
     put('nginx.conf.example', '/etc/nginx/conf.d/', use_sudo=True)
 
 
@@ -247,7 +251,7 @@ def _setup_redis():
     if run('which redis-server', warn_only=True).succeeded:
         print 'Already installed redis'
         return
-    sudo('apt-get install redis-server -y')
+    sudo('apt-get install redis-server -qq')
 
 
 def _setup_docker():
@@ -257,11 +261,11 @@ def _setup_docker():
         return
     sysinfo = _get_ubuntu_info()
     if sysinfo['release'] == '14.04':
-        sudo('apt-get update')
-        sudo('apt-get install -y linux-image-extra-virtual '
+        sudo('apt-get update -qq')
+        sudo('apt-get install -qq linux-image-extra-virtual '
              'linux-image-extra-$(uname -r)')
     sudo(
-        'apt-get install -y apt-transport-https ca-certificates '
+        'apt-get install -qq apt-transport-https ca-certificates '
         'software-properties-common'
     )
     sudo(
@@ -272,7 +276,7 @@ def _setup_docker():
         'add-apt-repository -y "deb [arch=amd64] '
         'https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"'
     )
-    sudo('apt-get update && apt-get install -y docker-ce')
+    sudo('apt-get update -qq && apt-get install -qq docker-ce')
 
 
 def _append_rc_local(cmd):
@@ -307,11 +311,11 @@ def _setup_mariadb():
         'apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 %s'
         % key
     )
-    sudo('apt-get install -y software-properties-common')
+    sudo('apt-get install -qq software-properties-common')
     sudo(
         "add-apt-repository -y 'deb http://ftp.osuosl.org/pub/mariadb/repo/"
         "10.2/ubuntu %s main'" % sysinfo['codename']
     )
-    sudo('apt-get update')
+    sudo('apt-get update -qq')
     sudo('service mysql stop', warn_only=True)
-    sudo('apt-get install -y mariadb-server libmysqld-dev', warn_only=True)
+    sudo('apt-get install -qq mariadb-server libmysqld-dev', warn_only=True)

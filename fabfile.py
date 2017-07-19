@@ -52,7 +52,7 @@ def _get_ubuntu_info():
 
 
 def _setup_aptget():
-    sudo('apt-get update -qq && apt-get upgrade -qq')
+    sudo('apt-get update -yq && apt-get upgrade -yq')
 
 
 def _setup_env():
@@ -78,6 +78,11 @@ def _setup_env():
         _enable_rc_local()
     # sysctl.conf
     _sysctl()
+    # disable ubuntu upgrade check
+    sudo(
+        "sed -i 's/^Prompt.*/Prompt=never/' "
+        "/etc/update-manager/release-upgrades", warn_only=True
+    )
 
 
 def _sysctl():
@@ -91,17 +96,17 @@ def _sysctl():
 def _setup_required():
     # git and utils
     sudo(
-        'apt-get install -qq git unzip curl wget tar sudo zip python-pip '
+        'apt-get install -yq git unzip curl wget tar sudo zip python-pip '
         'python-virtualenv sqlite3 tmux ntp build-essential uwsgi gettext '
         'uwsgi-plugin-python ack-grep htop python-setuptools'
     )
     # pillow reqs
     sudo(
-        'apt-get install -qq libtiff5-dev libjpeg8-dev zlib1g-dev liblcms2-dev '
-        'libfreetype6-dev libwebp-dev tcl8.6-dev tk8.6-dev python-tk'
+        'apt-get install -yq libtiff5-dev libjpeg8-dev zlib1g-dev liblcms2-dev'
+        ' libfreetype6-dev libwebp-dev tcl8.6-dev tk8.6-dev python-tk'
     )
     # add-apt-repository
-    sudo('apt-get install -qq software-properties-common', warn_only=True)
+    sudo('apt-get install -yq software-properties-common', warn_only=True)
     # letsencrypt
     # _setup_letsencrypt()
     # nodejs
@@ -171,7 +176,7 @@ def _setup_yarn():
         'echo "deb https://dl.yarnpkg.com/debian/ stable main" | '
         'tee /etc/apt/sources.list.d/yarn.list'
     )
-    sudo('apt-get update -qq && apt-get install -qq yarn')
+    sudo('apt-get update -yq && apt-get install -yq yarn')
 
 
 def _setup_mysql():
@@ -188,7 +193,7 @@ def _setup_mysql():
         "root_password_again password root'"
     )
     sudo(
-        'apt-get install -qq libmysqld-dev mysql-server mysql-client '
+        'apt-get install -yq libmysqld-dev mysql-server mysql-client '
         'libmysqlclient-dev'
     )
 
@@ -211,7 +216,7 @@ def _setup_mongodb():
         '/etc/apt/sources.list.d/mongodb-org-3.4.list'
         % sysinfo['codename']
     )
-    sudo('apt-get update -qq && apt-get install -qq mongodb-org')
+    sudo('apt-get update -yq && apt-get install -yq mongodb-org')
 
 
 def _enable_rc_local():
@@ -243,7 +248,7 @@ def _setup_nginx():
         '/etc/apt/sources.list.d/nginx.list'
         % (sysinfo['codename'], sysinfo['codename'])
     )
-    sudo('apt-get update -qq && apt-get install -qq nginx')
+    sudo('apt-get update -yq && apt-get install -yq nginx')
     put('nginx.conf.example', '/etc/nginx/conf.d/', use_sudo=True)
 
 
@@ -251,7 +256,7 @@ def _setup_redis():
     if run('which redis-server', warn_only=True).succeeded:
         print 'Already installed redis'
         return
-    sudo('apt-get install redis-server -qq')
+    sudo('apt-get install redis-server -yq')
 
 
 def _setup_docker():
@@ -261,11 +266,11 @@ def _setup_docker():
         return
     sysinfo = _get_ubuntu_info()
     if sysinfo['release'] == '14.04':
-        sudo('apt-get update -qq')
-        sudo('apt-get install -qq linux-image-extra-virtual '
+        sudo('apt-get update -yq')
+        sudo('apt-get install -yq linux-image-extra-virtual '
              'linux-image-extra-$(uname -r)')
     sudo(
-        'apt-get install -qq apt-transport-https ca-certificates '
+        'apt-get install -yq apt-transport-https ca-certificates '
         'software-properties-common'
     )
     sudo(
@@ -276,7 +281,7 @@ def _setup_docker():
         'add-apt-repository -y "deb [arch=amd64] '
         'https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"'
     )
-    sudo('apt-get update -qq && apt-get install -qq docker-ce')
+    sudo('apt-get update -yq && apt-get install -yq docker-ce')
 
 
 def _append_rc_local(cmd):
@@ -311,11 +316,11 @@ def _setup_mariadb():
         'apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 %s'
         % key
     )
-    sudo('apt-get install -qq software-properties-common')
+    sudo('apt-get install -yq software-properties-common')
     sudo(
         "add-apt-repository -y 'deb http://ftp.osuosl.org/pub/mariadb/repo/"
         "10.2/ubuntu %s main'" % sysinfo['codename']
     )
-    sudo('apt-get update -qq')
+    sudo('apt-get update -yq')
     sudo('service mysql stop', warn_only=True)
-    sudo('apt-get install -qq mariadb-server libmysqld-dev', warn_only=True)
+    sudo('apt-get install -yq mariadb-server libmysqld-dev', warn_only=True)

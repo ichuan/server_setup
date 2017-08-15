@@ -27,10 +27,21 @@ def setup(*what):
             else:
                 func()
         return
+    _disable_ipv6()
     _setup_aptget()
     _setup_required()
     _setup_env()
     # _setup_optional()
+
+
+def _disable_ipv6():
+    sysconf_no_ipv6 = [
+        'net.ipv6.conf.all.disable_ipv6 = 1',
+        'net.ipv6.conf.default.disable_ipv6 = 1',
+        'net.ipv6.conf.lo.disable_ipv6 = 1',
+    ]
+    append('/etc/sysctl.conf', sysconf_no_ipv6, use_sudo=True)
+    sudo('sysctl -p')
 
 
 def reboot():

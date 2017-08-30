@@ -17,7 +17,7 @@ G = {}
 def setup(*what):
     '''
     Fresh setup. Optional arguments: \
-    letsencrypt, nodejs, yarn, mysql, mongodb, redis, mariadb
+    letsencrypt, nodejs, yarn, mysql, mongodb, redis, mariadb, solc
     '''
     if what:
         for name in what:
@@ -335,3 +335,13 @@ def _setup_mariadb():
     sudo('apt-get update -yq')
     sudo('service mysql stop', warn_only=True)
     sudo('apt-get install -yq mariadb-server libmysqld-dev', warn_only=True)
+
+
+def _setup_solc():
+    # https://docs.docker.com/engine/installation/linux/ubuntu/
+    if run('which solc', warn_only=True).succeeded:
+        print 'Already installed solc'
+        return
+    sudo('add-apt-repository -y ppa:ethereum/ethereum')
+    sudo('apt-get update -yq')
+    sudo('apt-get install -yq solc')

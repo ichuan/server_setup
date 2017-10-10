@@ -17,7 +17,7 @@ G = {}
 def setup(*what):
     '''
     Fresh setup. Optional arguments: \
-    letsencrypt, nodejs, yarn, mysql, mongodb, redis, mariadb, solc
+    letsencrypt, nodejs, yarn, mysql, mongodb, redis, mariadb, solc, mono
     '''
     if what:
         for name in what:
@@ -345,3 +345,22 @@ def _setup_solc():
     sudo('add-apt-repository -y ppa:ethereum/ethereum')
     sudo('apt-get update -yq')
     sudo('apt-get install -yq solc')
+
+
+def _setup_mono():
+    # http://www.mono-project.com/download/#download-lin
+    if run('which mono', warn_only=True).succeeded:
+        print 'Already installed mono'
+        return
+    sudo(
+        'apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys '
+        '3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF',
+        warn_only=True
+    )
+    sysinfo = _get_ubuntu_info()
+    sudo(
+        'echo "deb http://download.mono-project.com/repo/ubuntu %s main" | tee'
+        ' /etc/apt/sources.list.d/mono-official.list' % sysinfo['codename'],
+        warn_only=True
+    )
+    sudo('apt-get update -yq && apt-get install -y mono-devel')

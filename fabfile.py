@@ -17,7 +17,7 @@ G = {}
 def setup(*what):
     '''
     Fresh setup. Optional arguments: \
-    letsencrypt, nodejs, yarn, mysql, mongodb, redis, mariadb, solc, mono
+    letsencrypt, nodejs, yarn, mysql, mongodb, redis, mariadb, solc, mono, go
     '''
     if what:
         for name in what:
@@ -364,3 +364,20 @@ def _setup_mono():
         warn_only=True
     )
     sudo('apt-get update -yq && apt-get install -y mono-devel')
+
+
+def _setup_go():
+    # https://golang.org/doc/install
+    url = 'https://storage.googleapis.com/golang/go1.9.1.linux-amd64.tar.gz'
+    # In case you in China
+    # url = 'https://golangtc.com/static/go/1.9.1/go1.9.1.linux-amd64.tar.gz'
+    if run('which go', warn_only=True).succeeded:
+        print 'Already installed go'
+        return
+    sudo(
+        'wget %s -O - --tries %s | tar -C /usr/local -xzf -'
+        % (url, WGET_TRIES),
+        warn_only=True
+    )
+    append('/etc/profile', 'export PATH=$PATH:/usr/local/go/bin',
+           use_sudo=True)

@@ -4,7 +4,7 @@
 
 from fabric.api import run, env, sudo, put
 from fabric.api import reboot as restart
-from fabric.contrib.files import append, contains, comment, sed
+from fabric.contrib.files import append, contains, comment, sed, exists
 from distutils.version import LooseVersion as _V
 
 env.use_ssh_config = True
@@ -79,10 +79,7 @@ def _setup_env():
     # UTC timezone
     sudo('cp /usr/share/zoneinfo/UTC /etc/localtime', warn_only=True)
     # limits.conf, max open files
-    sudo(
-        r'echo -e "*    soft    nofile  60000\n*    hard    nofile  65535" > '
-        r'/etc/security/limits.conf'
-    )
+    _limits()
     # rc.local after 15.04
     # https://wiki.ubuntu.com/SystemdForUpstartUsers
     if _V(sysinfo['release']) >= _V('15.04'):
@@ -94,6 +91,26 @@ def _setup_env():
         "sed -i 's/^Prompt.*/Prompt=never/' "
         "/etc/update-manager/release-upgrades", warn_only=True
     )
+    # douban pip config
+    run('mkdir -p ~/.pip', warn_only=True)
+    run(
+        r'echo -e "[global]\nindex-url = https://pypi.douban.com/simple\n'
+        r'trusted-host = pypi.douban.com" > ~/.pip/pip.conf'
+    )
+
+
+def _limits():
+    sudo(
+        r'echo -e "*    soft    nofile  500000\n*    hard    nofile  500000'
+        r'\nroot soft    nofile  500000\nroot hard    nofile  500000"'
+        r' > /etc/security/limits.conf'
+    )
+    # https://underyx.me/2015/05/18/raising-the-maximum-number-of-file-descriptors
+    line = 'session required pam_limits.so'
+    for p in ('/etc/pam.d/common-session',
+              '/etc/pam.d/common-session-noninteractive'):
+        if exists(p) and not contains(p, line):
+            sudo('echo -e "%s" >> %s' % (line, p))
 
 
 def _sysctl():
@@ -102,6 +119,8 @@ def _sysctl():
         sudo('echo -e "vm.overcommit_memory = 1" >> %s' % path)
     if not contains(path, 'net.core.somaxconn = 65535'):
         sudo('echo -e "net.core.somaxconn = 65535" >> %s' % path)
+    if not contains(path, 'fs.file-max = 6553560'):
+        sudo('echo -e "fs.file-max = 6553560" >> %s' % path)
 
 
 def _setup_required():
@@ -368,9 +387,7 @@ def _setup_mono():
 
 def _setup_go():
     # https://golang.org/doc/install
-    url = 'https://storage.googleapis.com/golang/go1.9.1.linux-amd64.tar.gz'
-    # In case you in China
-    # url = 'https://golangtc.com/static/go/1.9.1/go1.9.1.linux-amd64.tar.gz'
+    url = 'https://redirector.gvt1.com/edgedl/go/go1.9.2.linux-amd64.tar.gz'
     if run('which go', warn_only=True).succeeded:
         print 'Already installed go'
         return

@@ -387,7 +387,7 @@ def _setup_mono():
 
 def _setup_go():
     # https://golang.org/doc/install
-    url = 'https://redirector.gvt1.com/edgedl/go/go1.9.2.linux-amd64.tar.gz'
+    url = 'https://dl.google.com/go/go1.9.2.linux-amd64.tar.gz'
     if run('which go', warn_only=True).succeeded:
         print 'Already installed go'
         return

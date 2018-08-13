@@ -4,7 +4,9 @@
 
 from fabric.api import run, env, sudo, put
 from fabric.api import reboot as restart
-from fabric.contrib.files import append, contains, comment, sed, exists
+from fabric.contrib.files import (
+    append, contains, comment, sed, exists
+)
 from distutils.version import LooseVersion as _V
 
 env.use_ssh_config = True
@@ -63,7 +65,12 @@ def _get_ubuntu_info():
 
 
 def _setup_aptget():
-    sudo('apt-get update -yq && apt-get upgrade -yq')
+    sudo('apt-get update -yq')
+    sudo(
+        'DEBIAN_FRONTEND=noninteractive '
+        'apt-get -yq -o Dpkg::Options::="--force-confdef" '
+        '-o Dpkg::Options::="--force-confold" upgrade'
+    )
 
 
 def _setup_env():
@@ -73,7 +80,7 @@ def _setup_env():
         '[ ! -f ~/.tmux.conf ] && { '
         'git clone -b minimal --single-branch --recursive '
         'https://github.com/ichuan/dotfiles.git '
-        "&& echo 'y' | bash dotfiles/bootstrap.sh; }",
+        "&& bash dotfiles/bootstrap.sh -f; }",
         warn_only=True
     )
     # UTC timezone
@@ -128,7 +135,7 @@ def _setup_required():
     sudo(
         'apt-get install -yq git unzip curl wget tar sudo zip python-pip '
         'python-virtualenv sqlite3 tmux ntp build-essential uwsgi gettext '
-        'uwsgi-plugin-python ack-grep htop python-setuptools'
+        'uwsgi-plugin-python ack-grep htop python-setuptools jq'
     )
     # pillow reqs
     sudo(
@@ -176,8 +183,8 @@ def _setup_nodejs():
     sysinfo = _get_ubuntu_info()
     arch = 'x64' if sysinfo['x64'] else 'x86'
     filename = run(
-        "curl -s https://nodejs.org/dist/latest/SHASUMS256.txt | "
-        "grep linux-%s.tar.xz | awk '{print $2}'" % arch,
+        "curl -s https://nodejs.org/download/release/latest-carbon/"
+        "SHASUMS256.txt | grep linux-%s.tar.xz | awk '{print $2}'" % arch,
         shell=False
     )
     # already has?
@@ -187,7 +194,7 @@ def _setup_nodejs():
     ).succeeded:
         print 'Already installed nodejs'
         return
-    dist_url = 'https://nodejs.org/dist/latest/%s' % filename.strip()
+    dist_url = 'https://nodejs.org/dist/latest-carbon/%s' % filename.strip()
     run('wget -O /tmp/node.tar.xz --tries %s %s' % (WGET_TRIES, dist_url))
     sudo(
         'tar -C /usr/ --exclude CHANGELOG.md --exclude LICENSE '

@@ -2,7 +2,10 @@
 # coding: utf-8
 # yc@2016/12/28
 
-from fabric.api import run, env, sudo, put
+import os
+import re
+
+from fabric.api import run, env, sudo, put, cd
 from fabric.api import reboot as restart
 from fabric.contrib.files import (
     append, contains, comment, sed, exists
@@ -30,8 +33,7 @@ def setup(*what):
                 func()
         return
     _disable_ipv6()
-    _setup_aptget()
-    _setup_required()
+    _setup_debian()
     _setup_env()
     # _setup_optional()
 
@@ -78,7 +80,7 @@ def _setup_env():
     # dotfiles
     run(
         '[ ! -f ~/.tmux.conf ] && { '
-        'git clone -b minimal --single-branch --recursive '
+        'git clone --single-branch --recursive '
         'https://github.com/ichuan/dotfiles.git '
         "&& bash dotfiles/bootstrap.sh -f; }",
         warn_only=True
@@ -97,12 +99,6 @@ def _setup_env():
     sudo(
         "sed -i 's/^Prompt.*/Prompt=never/' "
         "/etc/update-manager/release-upgrades", warn_only=True
-    )
-    # douban pip config
-    run('mkdir -p ~/.pip', warn_only=True)
-    run(
-        r'echo -e "[global]\nindex-url = https://pypi.douban.com/simple\n'
-        r'trusted-host = pypi.douban.com" > ~/.pip/pip.conf'
     )
 
 
@@ -130,31 +126,13 @@ def _sysctl():
         sudo('echo -e "fs.file-max = 6553560" >> %s' % path)
 
 
-def _setup_required():
-    # git and utils
-    sudo(
-        'apt-get install -yq git unzip curl wget tar sudo zip python-pip '
-        'python-virtualenv sqlite3 tmux ntp build-essential uwsgi gettext '
-        'uwsgi-plugin-python ack-grep htop python-setuptools jq'
-    )
-    # pillow reqs
-    sudo(
-        'apt-get install -yq libtiff5-dev libjpeg8-dev zlib1g-dev liblcms2-dev'
-        ' libfreetype6-dev libwebp-dev tcl8.6-dev tk8.6-dev python-tk'
-    )
-    # add-apt-repository
-    sudo('apt-get install -yq software-properties-common', warn_only=True)
-    # letsencrypt
-    # _setup_letsencrypt()
-    # nodejs
-    # _setup_nodejs(sysinfo['x64'])
-    # yarnpkg
-    # _setup_yarn()
-
-
 def _setup_optional():
     _setup_mysql()
     _setup_mongodb()
+
+
+def _setup_certbot():
+    _setup_letsencrypt()
 
 
 def _setup_letsencrypt():
@@ -171,10 +149,20 @@ def _setup_letsencrypt():
     print 'Usage:'
     print '  new: certbot-auto -d example.com -d www.example.com --nginx'
     print 'renew: certbot-auto renew --no-self-upgrade'
+    print 'Or, with DNS:'
+    print (
+        '  certbot-auto --manual --preferred-challenges=dns --expand '
+        '--renew-by-default --manual-public-ip-logging-ok  --text '
+        '--agree-tos --email i.yanchuan@gmail.com certonly -d xx.co'
+    )
     print 'Crontab:'
     print (
         '0 0 * * * PATH=%s %s renew -n --nginx --no-self-upgrade '
         '>> /tmp/certbot.log 2>&1' % (path, bin_name)
+    )
+    print(
+        'After obtain certs, change file permissions:\n'
+        '  chmod 755 /etc/letsencrypt/{live,archive}'
     )
     print '-' * 56
 
@@ -263,7 +251,7 @@ def _enable_rc_local():
     if run(
         "head -1 %s | grep -q '^#!\/bin\/sh '" % rc_local, warn_only=True
     ).failed:
-        run("sed -i '1s/^/#!\/bin\/sh \\n/' %s" % rc_local)
+        sudo("sed -i '1s/^/#!\/bin\/sh \\n/' %s" % rc_local)
     _append_rc_local(
         'echo never > /sys/kernel/mm/transparent_hugepage/enabled'
     )
@@ -297,7 +285,7 @@ def _setup_redis():
 
 
 def _setup_docker():
-    # https://docs.docker.com/engine/installation/linux/ubuntu/
+    # https://docs.docker.com/install/linux/docker-ce/ubuntu/
     if run('which docker', warn_only=True).succeeded:
         print 'Already installed docker'
         return
@@ -319,6 +307,11 @@ def _setup_docker():
         'https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"'
     )
     sudo('apt-get update -yq && apt-get install -yq docker-ce')
+    # local-persist plugin
+    sudo('curl -fsSL https://raw.githubusercontent.com/CWSpear/local-persist/master/scripts/install.sh | bash')
+    print 'Usage of local-persist:\n  docker volume create -d local-persist -o mountpoint=/data --name=v1'
+    # docker-compose
+    sudo('pip install docker-compose', warn_only=True)
 
 
 def _append_rc_local(cmd):
@@ -405,3 +398,48 @@ def _setup_go():
     )
     append('/etc/profile', 'export PATH=$PATH:/usr/local/go/bin',
            use_sudo=True)
+
+
+def _setup_debian():
+    if not run('which sudo', warn_only=True).succeeded:
+        sudo('apt-get install sudo -y')
+    _setup_aptget()
+    sudo(
+        'apt-get install -yq git unzip curl wget tar sudo zip '
+        'sqlite3 tmux ntp build-essential gettext libcap2-bin '
+        'ack-grep htop jq'
+    )
+    # add-apt-repository
+    sudo('apt-get install -yq software-properties-common', warn_only=True)
+    _setup_env()
+
+
+def setup_swap(size='1'):
+    '''
+    添加 ?G 虚拟内存
+    '''
+    path = '/swap%sG' % size
+    if run('test -f %s' % path, warn_only=True).succeeded:
+        print '%s already exists' % path
+        return
+    sudo('fallocate -l %sG %s' % (size, path))
+    sudo('chmod 600 ' + path)
+    sudo('mkswap ' + path)
+    sudo('swapon ' + path)
+    sudo('echo vm.swappiness=10 >> /etc/sysctl.conf')
+    sudo('echo "%s none swap sw 00" >> /etc/fstab' % path)
+
+
+def _setup_python3():
+    url = 'https://www.python.org/ftp/python/3.7.1/Python-3.7.1.tgz'
+    sudo(
+        'apt install -y build-essential checkinstall libreadline-gplv2-dev '
+        'libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev '
+        'libc6-dev libbz2-dev libffi-dev'
+    )
+    with cd('/tmp'):
+        run('curl %s > py.tgz' % url)
+        run('tar xf py.tgz')
+        with cd('Python-3.*'):
+            sudo('./configure --enable-optimizations')
+            sudo('make altinstall')

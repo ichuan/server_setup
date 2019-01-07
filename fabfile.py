@@ -2,9 +2,6 @@
 # coding: utf-8
 # yc@2016/12/28
 
-import os
-import re
-
 from fabric.api import run, env, sudo, put, cd
 from fabric.api import reboot as restart
 from fabric.contrib.files import (
@@ -62,7 +59,8 @@ def _get_ubuntu_info():
             'release': run("lsb_release -sr", shell=False).strip(),
             'codename': run("lsb_release -sc", shell=False).strip(),
             'x64': run('test -d /lib64', warn_only=True).succeeded,
-            'dist': run("lsb_release -is | tr [:upper:] [:lower:]", shell=False).strip(),
+            'dist': run("lsb_release -is | tr [:upper:] [:lower:]",
+                        shell=False).strip(),
         }
     return G['sysinfo']
 
@@ -310,8 +308,14 @@ def _setup_docker():
     )
     sudo('apt-get update -yq && apt-get install -yq docker-ce')
     # local-persist plugin
-    sudo('curl -fsSL https://raw.githubusercontent.com/CWSpear/local-persist/master/scripts/install.sh | bash')
-    print 'Usage of local-persist:\n  docker volume create -d local-persist -o mountpoint=/data --name=v1'
+    sudo(
+        'curl -fsSL https://raw.githubusercontent.com/CWSpear/local-persist/'
+        'master/scripts/install.sh | bash'
+    )
+    print(
+        'Usage of local-persist:\n  '
+        'docker volume create -d local-persist -o mountpoint=/data --name=v1'
+    )
     # docker-compose
     sudo('pip install docker-compose', warn_only=True)
 
@@ -402,6 +406,21 @@ def _setup_go():
            use_sudo=True)
 
 
+def _try_install_latest(package):
+    sysinfo = _get_ubuntu_info()
+    url = (
+        'https://raw.githubusercontent.com/ichuan/packages/master'
+        '/{dist}/{release}/{package}/latest.deb'
+        ''.format(package=package, **sysinfo)
+    )
+    if run('wget -O /tmp/til.deb {}'.format(url), warn_only=True).succeeded:
+        # latest tmux
+        sudo('dpkg -i /tmp/til.deb')
+    else:
+        # old
+        sudo('apt-get install -y {}'.format(package))
+
+
 def _setup_debian():
     if not run('which sudo', warn_only=True).succeeded:
         sudo('apt-get install sudo -y')
@@ -411,6 +430,7 @@ def _setup_debian():
         'sqlite3 tmux ntp build-essential gettext libcap2-bin '
         'ack-grep htop jq python'
     )
+    _try_install_latest('tmux')
     # add-apt-repository
     sudo('apt-get install -yq software-properties-common', warn_only=True)
     _setup_env()

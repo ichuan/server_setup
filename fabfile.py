@@ -62,6 +62,7 @@ def _get_ubuntu_info():
             'release': run("lsb_release -sr", shell=False).strip(),
             'codename': run("lsb_release -sc", shell=False).strip(),
             'x64': run('test -d /lib64', warn_only=True).succeeded,
+            'dist': run("lsb_release -is | tr [:upper:] [:lower:]", shell=False).strip(),
         }
     return G['sysinfo']
 
@@ -268,10 +269,11 @@ def _setup_nginx():
     sudo('curl https://nginx.org/keys/nginx_signing.key | apt-key add -')
     # repo
     sudo(
-        'echo -e "deb http://nginx.org/packages/ubuntu/ %s nginx\\n'
-        'deb-src http://nginx.org/packages/ubuntu/ %s nginx" | tee '
+        'echo -e "deb http://nginx.org/packages/%s/ %s nginx\\n'
+        'deb-src http://nginx.org/packages/%s/ %s nginx" | tee '
         '/etc/apt/sources.list.d/nginx.list'
-        % (sysinfo['codename'], sysinfo['codename'])
+        % (sysinfo['dist'], sysinfo['codename'], sysinfo['dist'],
+           sysinfo['codename'])
     )
     sudo('apt-get update -yq && apt-get install -yq nginx')
     put('nginx.conf.example', '/etc/nginx/conf.d/', use_sudo=True)
@@ -407,7 +409,7 @@ def _setup_debian():
     sudo(
         'apt-get install -yq git unzip curl wget tar sudo zip '
         'sqlite3 tmux ntp build-essential gettext libcap2-bin '
-        'ack-grep htop jq'
+        'ack-grep htop jq python'
     )
     # add-apt-repository
     sudo('apt-get install -yq software-properties-common', warn_only=True)

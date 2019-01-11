@@ -290,21 +290,22 @@ def _setup_docker():
         print 'Already installed docker'
         return
     sysinfo = _get_ubuntu_info()
-    if sysinfo['release'] == '14.04':
+    if sysinfo['dist'] == 'ubuntu' and sysinfo['release'] == '14.04':
         sudo('apt-get update -yq')
         sudo('apt-get install -yq linux-image-extra-virtual '
              'linux-image-extra-$(uname -r)')
     sudo(
         'apt-get install -yq apt-transport-https ca-certificates '
-        'software-properties-common'
+        'software-properties-common curl gnupg2'
     )
     sudo(
-        'curl -fsSL https://download.docker.com/linux/ubuntu/gpg | '
-        'apt-key add -'
+        'curl -fsSL https://download.docker.com/linux/{}/gpg | '
+        'apt-key add -'.format(sysinfo['dist'])
     )
     sudo(
         'add-apt-repository -y "deb [arch=amd64] '
-        'https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"'
+        'https://download.docker.com/linux/{dist} {codename} stable"'
+        ''.format(**sysinfo)
     )
     sudo('apt-get update -yq && apt-get install -yq docker-ce')
     # local-persist plugin

@@ -308,6 +308,9 @@ def _setup_docker():
         ''.format(**sysinfo)
     )
     sudo('apt-get update -yq && apt-get install -yq docker-ce')
+    # disable default container file logging
+    sudo(r'echo -e "{\n  \"log-driver\": \"none\"\n}" '
+         r'> /etc/docker/daemon.json')
     # local-persist plugin
     sudo(
         'curl -fsSL https://raw.githubusercontent.com/CWSpear/local-persist/'

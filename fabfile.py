@@ -308,9 +308,14 @@ def _setup_docker():
         ''.format(**sysinfo)
     )
     sudo('apt-get update -yq && apt-get install -yq docker-ce')
-    # disable default container file logging
-    sudo(r'echo -e "{\n  \"log-driver\": \"none\"\n}" '
+    # docker logging rotate
+    sudo(r'echo -e "{\n  \"log-driver\": \"json-file\"\n  \"log-opts\": '
+         r'{\n    \"max-size\": \"50m\",\n    \"max-file\": \"5\"\n  }\n}" '
          r'> /etc/docker/daemon.json')
+    sudo('service docker restart', warn_only=True)
+    # fix permission issue
+    if run('test $USER = root', warn_only=True).failed:
+        sudo('usermod -a -G docker $USER', warn_only=True)
     # local-persist plugin
     sudo(
         'curl -fsSL https://raw.githubusercontent.com/CWSpear/local-persist/'
@@ -427,7 +432,7 @@ def _try_install_latest(package):
 
 def _setup_debian():
     if not run('which sudo', warn_only=True).succeeded:
-        sudo('apt-get install sudo -y')
+        run('apt-get install sudo -y')
     _setup_aptget()
     sudo(
         'apt-get install -yq git unzip curl wget tar sudo zip '

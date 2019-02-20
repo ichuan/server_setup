@@ -443,6 +443,7 @@ def _setup_debian():
     # add-apt-repository
     sudo('apt-get install -yq software-properties-common', warn_only=True)
     _setup_env()
+    _setup_bbr()
 
 
 def setup_swap(size='1'):
@@ -474,3 +475,23 @@ def _setup_python3():
         with cd('Python-3.*'):
             sudo('./configure --enable-optimizations')
             sudo('make altinstall')
+
+
+def _setup_bbr():
+    '''
+    Google bbr: https://github.com/google/bbr
+    '''
+    if sudo('sysctl net.ipv4.tcp_available_congestion_control | grep -q bbr',
+            warn_only=True).succeeded:
+        print 'bbr already enabled'
+        return
+    kernel_version = run('uname -r', shell=False).strip()
+    if _V(kernel_version) < _V('4.9'):
+        print 'bbr need linux 4.9+, please upgrade your kernel'
+        return
+    sysconf = [
+        'net.core.default_qdisc = fq',
+        'net.ipv4.tcp_congestion_control = bbr',
+    ]
+    append('/etc/sysctl.conf', sysconf, use_sudo=True)
+    sudo('sysctl -p')

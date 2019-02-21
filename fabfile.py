@@ -309,9 +309,9 @@ def _setup_docker():
     )
     sudo('apt-get update -yq && apt-get install -yq docker-ce')
     # docker logging rotate
-    sudo(r'echo -e "{\n  \"log-driver\": \"json-file\"\n  \"log-opts\": '
-         r'{\n    \"max-size\": \"50m\",\n    \"max-file\": \"5\"\n  }\n}" '
-         r'> /etc/docker/daemon.json')
+    sudo(r'''echo -e '{\n  "log-driver": "json-file",\n  "log-opts": '''
+         r'''{\n    "max-size": "50m",\n    "max-file": "5"\n  }\n}' '''
+         r'''> /etc/docker/daemon.json''')
     sudo('service docker restart', warn_only=True)
     # fix permission issue
     if run('test $USER = root', warn_only=True).failed:

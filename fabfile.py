@@ -232,13 +232,17 @@ def _setup_mongodb():
         return
     sudo(
         'apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 '
-        '--recv 0C49F3730359A14518585931BC711F9BA15703C6'
+        '--recv 9DA31620334BD75D9DCB49F368818C72E52529D4'
     )
+    if sysinfo['dist'] == 'debian':
+        line = ('deb http://repo.mongodb.org/apt/debian '
+                '{}/mongodb-org/4.0 main'.format(sysinfo['codename']))
+    else:
+        line = ('deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu '
+                '{}/mongodb-org/4.0 multiverse'.format(sysinfo['codename']))
     sudo(
-        'echo "deb [ arch=amd64 ] http://repo.mongodb.org/apt/ubuntu '
-        '%s/mongodb-org/3.4 multiverse" | tee '
-        '/etc/apt/sources.list.d/mongodb-org-3.4.list'
-        % sysinfo['codename']
+        'echo "{}" | tee /etc/apt/sources.list.d/mongodb-org-4.0.list'
+        ''.format(line)
     )
     sudo('apt-get update -yq && apt-get install -yq mongodb-org')
 
@@ -437,7 +441,7 @@ def _setup_debian():
     sudo(
         'apt-get install -yq git unzip curl wget tar sudo zip '
         'sqlite3 tmux ntp build-essential gettext libcap2-bin '
-        'ack-grep htop jq python'
+        'ack-grep htop jq python dirmngr'
     )
     _try_install_latest('tmux')
     # add-apt-repository

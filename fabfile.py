@@ -320,15 +320,6 @@ def _setup_docker():
     # fix permission issue
     if run('test $USER = root', warn_only=True).failed:
         sudo('usermod -a -G docker $USER', warn_only=True)
-    # local-persist plugin
-    sudo(
-        'curl -fsSL https://raw.githubusercontent.com/CWSpear/local-persist/'
-        'master/scripts/install.sh | bash'
-    )
-    print(
-        'Usage of local-persist:\n  '
-        'docker volume create -d local-persist -o mountpoint=/data --name=v1'
-    )
     # docker-compose
     sudo('pip install docker-compose', warn_only=True)
 

@@ -252,9 +252,9 @@ def _enable_rc_local():
     put('rc-local.service', '/etc/systemd/system/', use_sudo=True)
     sudo('touch %s' % rc_local)
     if run(
-        "head -1 %s | grep -q '^#!\/bin\/sh '" % rc_local, warn_only=True
+        "head -1 %s | grep -q '^#!/bin/sh'" % rc_local, warn_only=True
     ).failed:
-        sudo("sed -i '1s/^/#!\/bin\/sh \\n/' %s" % rc_local)
+        sudo(r"sed -i '1s/^/#!\/bin\/sh \n/' %s" % rc_local)
     _append_rc_local(
         'echo never > /sys/kernel/mm/transparent_hugepage/enabled'
     )
@@ -458,7 +458,7 @@ def setup_swap(size='1'):
 
 
 def _setup_python3():
-    url = 'https://www.python.org/ftp/python/3.7.1/Python-3.7.1.tgz'
+    url = 'https://www.python.org/ftp/python/3.7.3/Python-3.7.3.tgz'
     sudo(
         'apt install -y build-essential checkinstall libreadline-gplv2-dev '
         'libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev '

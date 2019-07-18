@@ -6,9 +6,7 @@ from __future__ import print_function
 
 from fabric.api import run, env, sudo, put, cd
 from fabric.api import reboot as restart
-from fabric.contrib.files import (
-    append, contains, comment, sed, exists
-)
+from fabric.contrib.files import append, contains, comment, sed, exists
 from distutils.version import LooseVersion as _V
 
 env.use_ssh_config = True
@@ -61,8 +59,9 @@ def _get_ubuntu_info():
             'release': run("lsb_release -sr", shell=False).strip(),
             'codename': run("lsb_release -sc", shell=False).strip(),
             'x64': run('test -d /lib64', warn_only=True).succeeded,
-            'dist': run("lsb_release -is | tr [:upper:] [:lower:]",
-                        shell=False).strip(),
+            'dist': run(
+                "lsb_release -is | tr [:upper:] [:lower:]", shell=False
+            ).strip(),
         }
     return G['sysinfo']
 
@@ -84,7 +83,7 @@ def _setup_env():
         'git clone --single-branch --recursive '
         'https://github.com/ichuan/dotfiles.git '
         "&& bash dotfiles/bootstrap.sh -f; }",
-        warn_only=True
+        warn_only=True,
     )
     # UTC timezone
     sudo('cp /usr/share/zoneinfo/UTC /etc/localtime', warn_only=True)
@@ -98,8 +97,8 @@ def _setup_env():
     _sysctl()
     # disable ubuntu upgrade check
     sudo(
-        "sed -i 's/^Prompt.*/Prompt=never/' "
-        "/etc/update-manager/release-upgrades", warn_only=True
+        "sed -i 's/^Prompt.*/Prompt=never/' " "/etc/update-manager/release-upgrades",
+        warn_only=True,
     )
 
 
@@ -111,8 +110,7 @@ def _limits():
     )
     # https://underyx.me/2015/05/18/raising-the-maximum-number-of-file-descriptors
     line = 'session required pam_limits.so'
-    for p in ('/etc/pam.d/common-session',
-              '/etc/pam.d/common-session-noninteractive'):
+    for p in ('/etc/pam.d/common-session', '/etc/pam.d/common-session-noninteractive'):
         if exists(p) and not contains(p, line):
             sudo('echo -e "%s" >> %s' % (line, p))
 
@@ -142,13 +140,14 @@ def _setup_letsencrypt():
     sudo(
         'wget https://dl.eff.org/certbot-auto -O %s --tries %s'
         % (bin_name, WGET_TRIES),
-        warn_only=True
+        warn_only=True,
     )
     sudo('chmod +x %s' % bin_name)
     path = run('echo $PATH')
     print('-' * 56)
     print(
-        textwrap.dedent('''\
+        textwrap.dedent(
+            '''\
             Usage:
               new: certbot-auto -d example.com -d www.example.com --nginx
             renew: certbot-auto renew --no-self-upgrade
@@ -156,7 +155,8 @@ def _setup_letsencrypt():
               certbot-auto --manual --preferred-challenges=dns --expand \\
               --renew-by-default --manual-public-ip-logging-ok  --text \\
               --agree-tos --email i.yanchuan@gmail.com certonly -d xx.co
-        ''')
+        '''
+        )
     )
     print('Crontab:')
     print(
@@ -176,12 +176,12 @@ def _setup_nodejs():
     filename = run(
         "curl -s https://nodejs.org/download/release/latest-carbon/"
         "SHASUMS256.txt | grep linux-%s.tar.xz | awk '{print $2}'" % arch,
-        shell=False
+        shell=False,
     )
     # already has?
     if run(
         'which node && test `node --version` = "%s"' % filename.split('-')[1],
-        warn_only=True
+        warn_only=True,
     ).succeeded:
         print('Already installed nodejs')
         return
@@ -239,15 +239,16 @@ def _setup_mongodb():
         '--recv 9DA31620334BD75D9DCB49F368818C72E52529D4'
     )
     if sysinfo['dist'] == 'debian':
-        line = ('deb http://repo.mongodb.org/apt/debian '
-                '{}/mongodb-org/4.0 main'.format(sysinfo['codename']))
+        line = (
+            'deb http://repo.mongodb.org/apt/debian '
+            '{}/mongodb-org/4.0 main'.format(sysinfo['codename'])
+        )
     else:
-        line = ('deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu '
-                '{}/mongodb-org/4.0 multiverse'.format(sysinfo['codename']))
-    sudo(
-        'echo "{}" | tee /etc/apt/sources.list.d/mongodb-org-4.0.list'
-        ''.format(line)
-    )
+        line = (
+            'deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu '
+            '{}/mongodb-org/4.0 multiverse'.format(sysinfo['codename'])
+        )
+    sudo('echo "{}" | tee /etc/apt/sources.list.d/mongodb-org-4.0.list' ''.format(line))
     sudo('apt-get update -yq && apt-get install -yq mongodb-org')
 
 
@@ -255,13 +256,9 @@ def _enable_rc_local():
     rc_local = '/etc/rc.local'
     put('rc-local.service', '/etc/systemd/system/', use_sudo=True)
     sudo('touch %s' % rc_local)
-    if run(
-        "head -1 %s | grep -q '^#!/bin/sh'" % rc_local, warn_only=True
-    ).failed:
+    if run("head -1 %s | grep -q '^#!/bin/sh'" % rc_local, warn_only=True).failed:
         sudo(r"sed -i '1s/^/#!\/bin\/sh \n/' %s" % rc_local)
-    _append_rc_local(
-        'echo never > /sys/kernel/mm/transparent_hugepage/enabled'
-    )
+    _append_rc_local('echo never > /sys/kernel/mm/transparent_hugepage/enabled')
     sudo('chmod +x %s' % rc_local)
     sudo('systemctl enable rc-local')
 
@@ -278,8 +275,7 @@ def _setup_nginx():
         'echo -e "deb http://nginx.org/packages/%s/ %s nginx\\n'
         'deb-src http://nginx.org/packages/%s/ %s nginx" | tee '
         '/etc/apt/sources.list.d/nginx.list'
-        % (sysinfo['dist'], sysinfo['codename'], sysinfo['dist'],
-           sysinfo['codename'])
+        % (sysinfo['dist'], sysinfo['codename'], sysinfo['dist'], sysinfo['codename'])
     )
     sudo('apt-get update -yq && apt-get install -yq nginx')
     put('nginx.conf.example', '/etc/nginx/conf.d/', use_sudo=True)
@@ -300,8 +296,10 @@ def _setup_docker():
     sysinfo = _get_ubuntu_info()
     if sysinfo['dist'] == 'ubuntu' and sysinfo['release'] == '14.04':
         sudo('apt-get update -yq')
-        sudo('apt-get install -yq linux-image-extra-virtual '
-             'linux-image-extra-$(uname -r)')
+        sudo(
+            'apt-get install -yq linux-image-extra-virtual '
+            'linux-image-extra-$(uname -r)'
+        )
     sudo(
         'apt-get install -yq apt-transport-https ca-certificates '
         'software-properties-common curl gnupg2'
@@ -317,9 +315,11 @@ def _setup_docker():
     )
     sudo('apt-get update -yq && apt-get install -yq docker-ce')
     # docker logging rotate
-    sudo(r'''echo -e '{\n  "log-driver": "json-file",\n  "log-opts": '''
-         r'''{\n    "max-size": "50m",\n    "max-file": "5"\n  }\n}' '''
-         r'''> /etc/docker/daemon.json''')
+    sudo(
+        r'''echo -e '{\n  "log-driver": "json-file",\n  "log-opts": '''
+        r'''{\n    "max-size": "50m",\n    "max-file": "5"\n  }\n}' '''
+        r'''> /etc/docker/daemon.json'''
+    )
     sudo('service docker restart', warn_only=True)
     # fix permission issue
     if run('test $USER = root', warn_only=True).failed:
@@ -356,10 +356,7 @@ def _setup_mariadb():
     key = '0xcbcb082a1bb943db'
     if _V(sysinfo['release']) >= _V('16.04'):
         key = '0xF1656F24C74CD1D8'
-    sudo(
-        'apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 %s'
-        % key
-    )
+    sudo('apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 %s' % key)
     sudo('apt-get install -yq software-properties-common')
     sudo(
         "add-apt-repository -y 'deb http://ftp.osuosl.org/pub/mariadb/repo/"
@@ -388,13 +385,13 @@ def _setup_mono():
     sudo(
         'apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys '
         '3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF',
-        warn_only=True
+        warn_only=True,
     )
     sysinfo = _get_ubuntu_info()
     sudo(
         'echo "deb http://download.mono-project.com/repo/ubuntu %s main" | tee'
         ' /etc/apt/sources.list.d/mono-official.list' % sysinfo['codename'],
-        warn_only=True
+        warn_only=True,
     )
     sudo('apt-get update -yq && apt-get install -y mono-devel')
 
@@ -406,12 +403,10 @@ def _setup_go():
         print('Already installed go')
         return
     sudo(
-        'wget %s -O - --tries %s | tar -C /usr/local -xzf -'
-        % (url, WGET_TRIES),
-        warn_only=True
+        'wget %s -O - --tries %s | tar -C /usr/local -xzf -' % (url, WGET_TRIES),
+        warn_only=True,
     )
-    append('/etc/profile', 'export PATH=$PATH:/usr/local/go/bin',
-           use_sudo=True)
+    append('/etc/profile', 'export PATH=$PATH:/usr/local/go/bin', use_sudo=True)
 
 
 def _try_install_latest(package):
@@ -480,17 +475,15 @@ def _setup_bbr():
     '''
     Google bbr: https://github.com/google/bbr
     '''
-    if sudo('sysctl net.ipv4.tcp_available_congestion_control | grep -q bbr',
-            warn_only=True).succeeded:
+    if sudo(
+        'sysctl net.ipv4.tcp_available_congestion_control | grep -q bbr', warn_only=True
+    ).succeeded:
         print('bbr already enabled')
         return
     kernel_version = run('uname -r', shell=False).strip()
     if _V(kernel_version) < _V('4.9'):
         print('bbr need linux 4.9+, please upgrade your kernel')
         return
-    sysconf = [
-        'net.core.default_qdisc = fq',
-        'net.ipv4.tcp_congestion_control = bbr',
-    ]
+    sysconf = ['net.core.default_qdisc = fq', 'net.ipv4.tcp_congestion_control = bbr']
     append('/etc/sysctl.conf', sysconf, use_sudo=True)
     sudo('sysctl -p')

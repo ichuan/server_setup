@@ -2,6 +2,8 @@
 # coding: utf-8
 # yc@2016/12/28
 
+from __future__ import print_function
+
 from fabric.api import run, env, sudo, put, cd
 from fabric.api import reboot as restart
 from fabric.contrib.files import (
@@ -25,7 +27,7 @@ def setup(*what):
         for name in what:
             func = globals().get('_setup_%s' % name, None)
             if func is None:
-                print 'No such task: %s' % name
+                print('No such task: %s' % name)
             else:
                 func()
         return
@@ -144,18 +146,20 @@ def _setup_letsencrypt():
     )
     sudo('chmod +x %s' % bin_name)
     path = run('echo $PATH')
-    print '-' * 56
-    print 'Usage:'
-    print '  new: certbot-auto -d example.com -d www.example.com --nginx'
-    print 'renew: certbot-auto renew --no-self-upgrade'
-    print 'Or, with DNS:'
-    print (
-        '  certbot-auto --manual --preferred-challenges=dns --expand '
-        '--renew-by-default --manual-public-ip-logging-ok  --text '
-        '--agree-tos --email i.yanchuan@gmail.com certonly -d xx.co'
+    print('-' * 56)
+    print(
+        textwrap.dedent('''\
+            Usage:
+              new: certbot-auto -d example.com -d www.example.com --nginx
+            renew: certbot-auto renew --no-self-upgrade
+            Or, with DNS:
+              certbot-auto --manual --preferred-challenges=dns --expand \\
+              --renew-by-default --manual-public-ip-logging-ok  --text \\
+              --agree-tos --email i.yanchuan@gmail.com certonly -d xx.co
+        ''')
     )
-    print 'Crontab:'
-    print (
+    print('Crontab:')
+    print(
         '0 0 * * * PATH=%s %s renew -n --nginx --no-self-upgrade '
         '>> /tmp/certbot.log 2>&1' % (path, bin_name)
     )
@@ -163,7 +167,7 @@ def _setup_letsencrypt():
         'After obtain certs, change file permissions:\n'
         '  chmod 755 /etc/letsencrypt/{live,archive}'
     )
-    print '-' * 56
+    print('-' * 56)
 
 
 def _setup_nodejs():
@@ -179,7 +183,7 @@ def _setup_nodejs():
         'which node && test `node --version` = "%s"' % filename.split('-')[1],
         warn_only=True
     ).succeeded:
-        print 'Already installed nodejs'
+        print('Already installed nodejs')
         return
     dist_url = 'https://nodejs.org/dist/latest-carbon/%s' % filename.strip()
     run('wget -O /tmp/node.tar.xz --tries %s %s' % (WGET_TRIES, dist_url))
@@ -193,7 +197,7 @@ def _setup_nodejs():
 
 def _setup_yarn():
     if run('which yarn', warn_only=True).succeeded:
-        print 'Already installed yarn'
+        print('Already installed yarn')
         return
     sudo('curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -')
     sudo(
@@ -205,7 +209,7 @@ def _setup_yarn():
 
 def _setup_mysql():
     if run('which mysqld', warn_only=True).succeeded:
-        print 'Already installed mysql'
+        print('Already installed mysql')
         return
     # user/password => root/root
     sudo(
@@ -224,11 +228,11 @@ def _setup_mysql():
 
 def _setup_mongodb():
     if run('which mongod', warn_only=True).succeeded:
-        print 'Already installed mongod'
+        print('Already installed mongod')
         return
     sysinfo = _get_ubuntu_info()
     if not sysinfo['x64']:
-        print 'mongodb only supports 64bit system'
+        print('mongodb only supports 64bit system')
         return
     sudo(
         'apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 '
@@ -264,7 +268,7 @@ def _enable_rc_local():
 
 def _setup_nginx():
     if run('which nginx', warn_only=True).succeeded:
-        print 'Already installed nginx'
+        print('Already installed nginx')
         return
     sysinfo = _get_ubuntu_info()
     # key
@@ -283,7 +287,7 @@ def _setup_nginx():
 
 def _setup_redis():
     if run('which redis-server', warn_only=True).succeeded:
-        print 'Already installed redis'
+        print('Already installed redis')
         return
     sudo('apt-get install redis-server -yq')
 
@@ -291,7 +295,7 @@ def _setup_redis():
 def _setup_docker():
     # https://docs.docker.com/install/linux/docker-ce/ubuntu/
     if run('which docker', warn_only=True).succeeded:
-        print 'Already installed docker'
+        print('Already installed docker')
         return
     sysinfo = _get_ubuntu_info()
     if sysinfo['dist'] == 'ubuntu' and sysinfo['release'] == '14.04':
@@ -336,7 +340,7 @@ def _setup_mariadb():
     can be used to migrate mysql to mariadb
     '''
     if run('test -f /etc/mysql/conf.d/mariadb.cnf ', warn_only=True).succeeded:
-        print 'Already installed mariadb'
+        print('Already installed mariadb')
         return
     # user/password => root/root
     sudo(
@@ -369,7 +373,7 @@ def _setup_mariadb():
 def _setup_solc():
     # https://docs.docker.com/engine/installation/linux/ubuntu/
     if run('which solc', warn_only=True).succeeded:
-        print 'Already installed solc'
+        print('Already installed solc')
         return
     sudo('add-apt-repository -y ppa:ethereum/ethereum')
     sudo('apt-get update -yq')
@@ -379,7 +383,7 @@ def _setup_solc():
 def _setup_mono():
     # http://www.mono-project.com/download/#download-lin
     if run('which mono', warn_only=True).succeeded:
-        print 'Already installed mono'
+        print('Already installed mono')
         return
     sudo(
         'apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys '
@@ -399,7 +403,7 @@ def _setup_go():
     # https://golang.org/doc/install
     url = 'https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz'
     if run('which go', warn_only=True).succeeded:
-        print 'Already installed go'
+        print('Already installed go')
         return
     sudo(
         'wget %s -O - --tries %s | tar -C /usr/local -xzf -'
@@ -447,7 +451,7 @@ def setup_swap(size='1'):
     '''
     path = '/swap%sG' % size
     if run('test -f %s' % path, warn_only=True).succeeded:
-        print '%s already exists' % path
+        print('%s already exists' % path)
         return
     sudo('fallocate -l %sG %s' % (size, path))
     sudo('chmod 600 ' + path)
@@ -478,11 +482,11 @@ def _setup_bbr():
     '''
     if sudo('sysctl net.ipv4.tcp_available_congestion_control | grep -q bbr',
             warn_only=True).succeeded:
-        print 'bbr already enabled'
+        print('bbr already enabled')
         return
     kernel_version = run('uname -r', shell=False).strip()
     if _V(kernel_version) < _V('4.9'):
-        print 'bbr need linux 4.9+, please upgrade your kernel'
+        print('bbr need linux 4.9+, please upgrade your kernel')
         return
     sysconf = [
         'net.core.default_qdisc = fq',

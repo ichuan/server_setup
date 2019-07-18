@@ -171,21 +171,19 @@ def _setup_letsencrypt():
 
 
 def _setup_nodejs():
-    sysinfo = _get_ubuntu_info()
-    arch = 'x64' if sysinfo['x64'] else 'x86'
-    filename = run(
-        "curl -s https://nodejs.org/download/release/latest-carbon/"
-        "SHASUMS256.txt | grep linux-%s.tar.xz | awk '{print $2}'" % arch,
-        shell=False,
-    )
+    # get latest LTS nodejs version
+    versions = json.load(urllib2.urlopen('https://nodejs.org/dist/index.json'))
+    lts = sorted(
+        (i for i in versions if i['lts']), key=lambda i: parse_version(i['version'])
+    )[-1]
     # already has?
     if run(
-        'which node && test `node --version` = "%s"' % filename.split('-')[1],
-        warn_only=True,
+        'which node && test `node --version` = "%s"' % lts['version'], warn_only=True
     ).succeeded:
         print('Already installed nodejs')
         return
-    dist_url = 'https://nodejs.org/dist/latest-carbon/%s' % filename.strip()
+    dist_url = 'https://nodejs.org/dist/latest-{}/node-{}-linux-x64.tar.gz'
+    dist_url = dist_url.format(lts['lts'].lower(), lts['version'])
     run('wget -O /tmp/node.tar.xz --tries %s %s' % (WGET_TRIES, dist_url))
     sudo(
         'tar -C /usr/ --exclude CHANGELOG.md --exclude LICENSE '

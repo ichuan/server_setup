@@ -316,7 +316,9 @@ def _setup_docker():
 
 
 def _autostart(cmd):
-    sudo('echo "@reboot %s" | crontab -' % cmd)
+    script = '/etc/cron.d/autostart'
+    sudo('chmod +x %s' % script, warn_only=True)
+    sudo('echo "@reboot %s" | tee -a %s' % (cmd, script))
 
 
 def _setup_mariadb():

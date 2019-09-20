@@ -11,7 +11,7 @@ from pkg_resources import parse_version
 
 from fabric.api import run, env, sudo, put, cd
 from fabric.api import reboot as restart
-from fabric.contrib.files import append, contains, comment, sed, exists
+from fabric.contrib.files import append, contains, exists
 from distutils.version import LooseVersion as _V
 
 env.use_ssh_config = True
@@ -81,7 +81,6 @@ def _setup_aptget():
 
 
 def _setup_env():
-    sysinfo = _get_ubuntu_info()
     # dotfiles
     run(
         '[ ! -f ~/.tmux.conf ] && { '
@@ -94,10 +93,6 @@ def _setup_env():
     sudo('cp /usr/share/zoneinfo/UTC /etc/localtime', warn_only=True)
     # limits.conf, max open files
     _limits()
-    # rc.local after 15.04
-    # https://wiki.ubuntu.com/SystemdForUpstartUsers
-    if _V(sysinfo['release']) >= _V('15.04'):
-        _enable_rc_local()
     # sysctl.conf
     _sysctl()
     # disable ubuntu upgrade check
@@ -255,17 +250,6 @@ def _setup_mongodb():
     sudo('apt-get update -yq && apt-get install -yq mongodb-org')
 
 
-def _enable_rc_local():
-    rc_local = '/etc/rc.local'
-    put('rc-local.service', '/etc/systemd/system/', use_sudo=True)
-    sudo('touch %s' % rc_local)
-    if run("head -1 %s | grep -q '^#!/bin/sh'" % rc_local, warn_only=True).failed:
-        sudo(r"sed -i '1s/^/#!\/bin\/sh \n/' %s" % rc_local)
-    _append_rc_local('echo never > /sys/kernel/mm/transparent_hugepage/enabled')
-    sudo('chmod +x %s' % rc_local)
-    sudo('systemctl enable rc-local')
-
-
 def _setup_nginx():
     if run('which nginx', warn_only=True).succeeded:
         print('Already installed nginx')
@@ -331,11 +315,8 @@ def _setup_docker():
     sudo('pip install docker-compose', warn_only=True)
 
 
-def _append_rc_local(cmd):
-    rc_local = '/etc/rc.local'
-    comment(rc_local, r'^exit 0', use_sudo=True)
-    append(rc_local, [cmd, 'exit 0'], use_sudo=True)
-    sed(rc_local, '^#exit 0.*', '', use_sudo=True, backup='')
+def _autostart(cmd):
+    sudo('echo "@reboot %s" | crontab -' % cmd)
 
 
 def _setup_mariadb():
@@ -434,7 +415,7 @@ def _setup_debian():
     sudo(
         'apt-get install -yq git unzip curl wget tar sudo zip '
         'sqlite3 tmux ntp build-essential gettext libcap2-bin '
-        'ack-grep htop jq python dirmngr'
+        'ack-grep htop jq python dirmngr cron'
     )
     _try_install_latest('tmux')
     # add-apt-repository

@@ -4,6 +4,11 @@
 
 from __future__ import print_function
 
+import json
+import textwrap
+import urllib2
+from pkg_resources import parse_version
+
 from fabric.api import run, env, sudo, put, cd
 from fabric.api import reboot as restart
 from fabric.contrib.files import append, contains, comment, sed, exists
@@ -97,7 +102,7 @@ def _setup_env():
     _sysctl()
     # disable ubuntu upgrade check
     sudo(
-        "sed -i 's/^Prompt.*/Prompt=never/' " "/etc/update-manager/release-upgrades",
+        "sed -i 's/^Prompt.*/Prompt=never/' /etc/update-manager/release-upgrades",
         warn_only=True,
     )
 

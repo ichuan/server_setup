@@ -117,7 +117,7 @@ def _limits():
     systemd_conf = '/etc/systemd/system.conf'
     if exists(systemd_conf):
         sudo(
-            'sed -i "s/^#DefaultLimitNOFILE=/DefaultLimitNOFILE=500000/g" {}'
+            'sed -i "s/^#DefaultLimitNOFILE=.*/DefaultLimitNOFILE=500000/g" {}'
             ''.format(systemd_conf), warn_only=True
         )
 
@@ -318,7 +318,7 @@ def _setup_docker():
     sudo('service docker restart', warn_only=True)
     # fix permission issue
     if run('test $USER = root', warn_only=True).failed:
-        sudo('usermod -a -G docker $USER', warn_only=True)
+        run('sudo usermod -a -G docker $USER', warn_only=True)
     # docker-compose
     sudo('pip install docker-compose', warn_only=True)
 

@@ -113,16 +113,24 @@ def _limits():
     for p in ('/etc/pam.d/common-session', '/etc/pam.d/common-session-noninteractive'):
         if exists(p) and not contains(p, line):
             sudo('echo -e "%s" >> %s' % (line, p))
+    # "systemd garbage"
+    systemd_conf = '/etc/systemd/system.conf'
+    if exists(systemd_conf):
+        sudo(
+            'sed -i "s/^#DefaultLimitNOFILE=/DefaultLimitNOFILE=500000/g" {}'
+            ''.format(systemd_conf), warn_only=True
+        )
 
 
 def _sysctl():
     path = '/etc/sysctl.conf'
     if not contains(path, 'vm.overcommit_memory = 1'):
-        sudo('echo -e "vm.overcommit_memory = 1" >> %s' % path)
+        sudo('echo "vm.overcommit_memory = 1" >> %s' % path)
     if not contains(path, 'net.core.somaxconn = 65535'):
-        sudo('echo -e "net.core.somaxconn = 65535" >> %s' % path)
+        sudo('echo "net.core.somaxconn = 65535" >> %s' % path)
     if not contains(path, 'fs.file-max = 6553560'):
-        sudo('echo -e "fs.file-max = 6553560" >> %s' % path)
+        sudo('echo "fs.file-max = 6553560" >> %s' % path)
+    sudo('sysctl -p')
 
 
 def _setup_optional():

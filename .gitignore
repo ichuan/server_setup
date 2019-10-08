@@ -4,3 +4,4 @@
 *.pyc
 *.mo
 node_modules/
+/env/

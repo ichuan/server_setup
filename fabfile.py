@@ -425,7 +425,7 @@ def _setup_debian():
     sudo(
         'apt-get install -yq git unzip curl wget tar sudo zip '
         'sqlite3 tmux ntp build-essential gettext libcap2-bin '
-        'ack-grep htop jq python dirmngr cron'
+        'silversearcher-ag htop jq python dirmngr cron'
     )
     _try_install_latest('tmux')
     # add-apt-repository

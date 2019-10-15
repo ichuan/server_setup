@@ -451,7 +451,7 @@ def setup_swap(size='1'):
 
 
 def _setup_python3():
-    url = 'https://www.python.org/ftp/python/3.7.3/Python-3.7.3.tgz'
+    url = 'https://www.python.org/ftp/python/3.8.0/Python-3.8.0.tgz'
     sudo(
         'apt install -y build-essential checkinstall libreadline-gplv2-dev '
         'libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev '

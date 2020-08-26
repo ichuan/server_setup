@@ -118,7 +118,8 @@ def _limits():
     if exists(systemd_conf):
         sudo(
             'sed -i "s/^#DefaultLimitNOFILE=.*/DefaultLimitNOFILE=500000/g" {}'
-            ''.format(systemd_conf), warn_only=True
+            ''.format(systemd_conf),
+            warn_only=True,
         )
 
 
@@ -179,8 +180,9 @@ def _setup_letsencrypt():
 
 
 def _setup_nodejs():
-    # get latest LTS nodejs version
-    versions = json.load(urllib2.urlopen('https://nodejs.org/dist/index.json'))
+    versions = json.load(
+        urllib2.urlopen('https://npm.taobao.org/mirrors/node/index.json')
+    )
     lts = sorted(
         (i for i in versions if i['lts']), key=lambda i: parse_version(i['version'])
     )[-1]
@@ -190,7 +192,8 @@ def _setup_nodejs():
     ).succeeded:
         print('Already installed nodejs')
         return
-    dist_url = 'https://nodejs.org/dist/latest-{}/node-{}-linux-x64.tar.gz'
+    # dist_url = 'https://nodejs.org/dist/latest-{}/node-{}-linux-x64.tar.gz'
+    dist_url = 'https://npm.taobao.org/mirrors/node/latest-{}/node-{}-linux-x64.tar.gz'
     dist_url = dist_url.format(lts['lts'].lower(), lts['version'])
     run('wget -O /tmp/node.tar.xz --tries %s %s' % (WGET_TRIES, dist_url))
     sudo(
@@ -320,7 +323,12 @@ def _setup_docker():
     if run('test $USER = root', warn_only=True).failed:
         run('sudo usermod -a -G docker $USER', warn_only=True)
     # docker-compose
-    sudo('pip install docker-compose', warn_only=True)
+    sudo(
+        'curl -L "https://github.com/docker/compose/releases/latest/download/'
+        'docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose',
+        warn_only=True,
+    )
+    sudo('chmod +x /usr/local/bin/docker-compose', warn_only=True)
 
 
 def _autostart(cmd):
@@ -427,6 +435,7 @@ def _setup_debian():
         'sqlite3 tmux ntp build-essential gettext libcap2-bin '
         'silversearcher-ag htop jq python dirmngr cron'
     )
+    sudo('systemctl enable ntp.service')
     _try_install_latest('tmux')
     # add-apt-repository
     sudo('apt-get install -yq software-properties-common', warn_only=True)
@@ -451,7 +460,8 @@ def setup_swap(size='1'):
 
 
 def _setup_python3():
-    url = 'https://www.python.org/ftp/python/3.8.0/Python-3.8.0.tgz'
+    # url = 'https://cdn.npm.taobao.org/dist/python/3.8.5/Python-3.8.5.tgz'
+    url = 'https://www.python.org/ftp/python/3.8.5/Python-3.8.5.tgz'
     sudo(
         'apt install -y build-essential checkinstall libreadline-gplv2-dev '
         'libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev '

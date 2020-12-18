@@ -89,6 +89,7 @@ def _setup_env():
         "&& bash dotfiles/bootstrap.sh -f; }",
         warn_only=True,
     )
+    run('rm -rf dotfiles ~/Tomorrow_Night_Bright.terminal')
     # UTC timezone
     sudo('cp /usr/share/zoneinfo/UTC /etc/localtime', warn_only=True)
     # limits.conf, max open files
@@ -315,7 +316,7 @@ def _setup_docker():
     # docker logging rotate
     sudo(
         r'''echo -e '{\n  "log-driver": "json-file",\n  "log-opts": '''
-        r'''{\n    "max-size": "50m",\n    "max-file": "5"\n  }\n}' '''
+        r'''{\n    "max-size": "100m",\n    "max-file": "5"\n  }\n}' '''
         r'''> /etc/docker/daemon.json'''
     )
     sudo('service docker restart', warn_only=True)
@@ -436,6 +437,7 @@ def _setup_debian():
         'silversearcher-ag htop jq python dirmngr cron'
     )
     sudo('systemctl enable ntp.service')
+    sudo('systemctl start ntp.service')
     _try_install_latest('tmux')
     # add-apt-repository
     sudo('apt-get install -yq software-properties-common', warn_only=True)
@@ -491,3 +493,20 @@ def _setup_bbr():
     sysconf = ['net.core.default_qdisc = fq', 'net.ipv4.tcp_congestion_control = bbr']
     append('/etc/sysctl.conf', sysconf, use_sudo=True)
     sudo('sysctl -p')
+
+
+def _setup_ossutil():
+    '''
+    aliyun ossutil
+    https://help.aliyun.com/document_detail/120075.html
+    '''
+    sudo(
+        'wget -O /usr/local/bin/ossutil http://gosspublic.alicdn.com/ossutil/'
+        '1.7.0/ossutil64 && chmod +x /usr/local/bin/ossutil',
+        warn_only=True,
+    )
+    print(
+        'Usage: ossutil --access-key-id=<AK> --access-key-secret=<SK> '
+        '--endpoint=oss-cn-zhangjiakou-internal.aliyuncs.com cp <SRC_FILE> '
+        'oss://<BUCKET_NAME>/<PATH>'
+    )

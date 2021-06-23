@@ -462,8 +462,8 @@ def setup_swap(size='1'):
 
 
 def _setup_python3():
-    # url = 'https://cdn.npm.taobao.org/dist/python/3.8.5/Python-3.8.5.tgz'
-    url = 'https://www.python.org/ftp/python/3.8.5/Python-3.8.5.tgz'
+    # url = 'https://cdn.npm.taobao.org/dist/python/3.9.2/Python-3.9.2.tgz'
+    url = 'https://www.python.org/ftp/python/3.9.2/Python-3.9.2.tgz'
     sudo(
         'apt install -y build-essential checkinstall libreadline-gplv2-dev '
         'libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev '

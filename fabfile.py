@@ -2,109 +2,109 @@
 # coding: utf-8
 # yc@2016/12/28
 
-from __future__ import print_function
+from __future__ import unicode_literals
 
 import json
 import textwrap
 import urllib2
 from pkg_resources import parse_version
 
-from fabric.api import run, env, sudo, put, cd
-from fabric.api import reboot as restart
-from fabric.contrib.files import append, contains, exists
+from fabric import task
+from patchwork.files import append, exists, contains
 from distutils.version import LooseVersion as _V
 
-env.use_ssh_config = True
-env.colorize_errors = True
 # wget max try
 WGET_TRIES = 3
 G = {}
 
 
-def setup(*what):
+@task
+def setup(c, what=''):
     '''
     Fresh setup. Optional arguments: \
     letsencrypt, nodejs, yarn, mysql, mongodb, redis, mariadb, solc, mono, go
     '''
     if what:
-        for name in what:
+        for name in what.split(','):
             func = globals().get('_setup_%s' % name, None)
             if func is None:
                 print('No such task: %s' % name)
             else:
-                func()
+                func(c)
         return
-    _disable_ipv6()
-    _setup_debian()
-    _setup_env()
-    # _setup_optional()
+    _disable_ipv6(c)
+    _setup_debian(c)
+    _setup_env(c)
 
 
-def _disable_ipv6():
-    sysconf_no_ipv6 = [
-        'net.ipv6.conf.all.disable_ipv6 = 1',
-        'net.ipv6.conf.default.disable_ipv6 = 1',
-        'net.ipv6.conf.lo.disable_ipv6 = 1',
-    ]
-    append('/etc/sysctl.conf', sysconf_no_ipv6, use_sudo=True)
-    sudo('sysctl -p')
+def _disable_ipv6(c):
+    sysconf_no_ipv6 = '\n'.join(
+        [
+            'net.ipv6.conf.all.disable_ipv6 = 1',
+            'net.ipv6.conf.default.disable_ipv6 = 1',
+            'net.ipv6.conf.lo.disable_ipv6 = 1',
+        ]
+    )
+    append(c, '/etc/sysctl.conf', sysconf_no_ipv6, sudo=True)
+    c.sudo('sysctl -p')
 
 
-def reboot():
+@task
+def reboot(c):
     '''
     Restart a server.
     '''
-    restart()
+    c.sudo('reboot')
 
 
-def _get_ubuntu_info():
+def _get_ubuntu_info(c):
     # returns {release, codename, is_64bit}
     if 'sysinfo' not in G:
         G['sysinfo'] = {
-            'release': run("lsb_release -sr", shell=False).strip(),
-            'codename': run("lsb_release -sc", shell=False).strip(),
-            'x64': run('test -d /lib64', warn_only=True).succeeded,
-            'dist': run(
-                "lsb_release -is | tr [:upper:] [:lower:]", shell=False
-            ).strip(),
+            'release': c.run("lsb_release -sr", hide=True).stdout.strip(),
+            'codename': c.run("lsb_release -sc", hide=True).stdout.strip(),
+            'x64': c.run('test -d /lib64', warn=True, hide=True).ok,
+            'dist': c.run(
+                "lsb_release -is | tr [:upper:] [:lower:]", hide=True
+            ).stdout.strip(),
         }
     return G['sysinfo']
 
 
-def _setup_aptget():
-    sudo('apt-get update -yq')
-    sudo(
+def _setup_aptget(c):
+    c.sudo('apt-get update -yq')
+    c.sudo(
         'DEBIAN_FRONTEND=noninteractive '
         'apt-get -yq -o Dpkg::Options::="--force-confdef" '
         '-o Dpkg::Options::="--force-confold" upgrade'
     )
 
 
-def _setup_env():
+def _setup_env(c):
     # dotfiles
-    run(
+    c.run(
         '[ ! -f ~/.tmux.conf ] && { '
         'git clone --single-branch --recursive '
         'https://github.com/ichuan/dotfiles.git '
         "&& bash dotfiles/bootstrap.sh -f; }",
-        warn_only=True,
+        warn=True,
     )
-    run('rm -rf dotfiles ~/Tomorrow_Night_Bright.terminal')
+    c.run('rm -rf dotfiles ~/Tomorrow_Night_Bright.terminal')
     # UTC timezone
-    sudo('cp /usr/share/zoneinfo/UTC /etc/localtime', warn_only=True)
+    c.sudo('cp /usr/share/zoneinfo/UTC /etc/localtime', warn=True)
     # limits.conf, max open files
-    _limits()
+    _limits(c)
     # sysctl.conf
-    _sysctl()
+    _sysctl(c)
     # disable ubuntu upgrade check
-    sudo(
+    c.sudo(
         "sed -i 's/^Prompt.*/Prompt=never/' /etc/update-manager/release-upgrades",
-        warn_only=True,
+        warn=True,
     )
 
 
-def _limits():
-    sudo(
+def _limits(c):
+    c.sudo(
         r'echo -e "*    soft    nofile  500000\n*    hard    nofile  500000'
         r'\nroot soft    nofile  500000\nroot hard    nofile  500000"'
         r' > /etc/security/limits.conf'
@@ -112,48 +112,48 @@ def _limits():
     # https://underyx.me/2015/05/18/raising-the-maximum-number-of-file-descriptors
     line = 'session required pam_limits.so'
     for p in ('/etc/pam.d/common-session', '/etc/pam.d/common-session-noninteractive'):
-        if exists(p) and not contains(p, line):
-            sudo('echo -e "%s" >> %s' % (line, p))
+        if exists(c, p) and not contains(c, p, line):
+            c.sudo('echo -e "%s" >> %s' % (line, p))
     # "systemd garbage"
     systemd_conf = '/etc/systemd/system.conf'
-    if exists(systemd_conf):
-        sudo(
+    if exists(c, systemd_conf):
+        c.sudo(
             'sed -i "s/^#DefaultLimitNOFILE=.*/DefaultLimitNOFILE=500000/g" {}'
             ''.format(systemd_conf),
-            warn_only=True,
+            warn=True,
         )
 
 
-def _sysctl():
+def _sysctl(c):
     path = '/etc/sysctl.conf'
-    if not contains(path, 'vm.overcommit_memory = 1'):
-        sudo('echo "vm.overcommit_memory = 1" >> %s' % path)
-    if not contains(path, 'net.core.somaxconn = 65535'):
-        sudo('echo "net.core.somaxconn = 65535" >> %s' % path)
-    if not contains(path, 'fs.file-max = 6553560'):
-        sudo('echo "fs.file-max = 6553560" >> %s' % path)
-    sudo('sysctl -p')
+    if not contains(c, path, 'vm.overcommit_memory = 1'):
+        c.sudo('echo "vm.overcommit_memory = 1" >> %s' % path)
+    if not contains(c, path, 'net.core.somaxconn = 65535'):
+        c.sudo('echo "net.core.somaxconn = 65535" >> %s' % path)
+    if not contains(c, path, 'fs.file-max = 6553560'):
+        c.sudo('echo "fs.file-max = 6553560" >> %s' % path)
+    c.sudo('sysctl -p')
 
 
-def _setup_optional():
-    _setup_mysql()
-    _setup_mongodb()
+def _setup_optional(c):
+    _setup_mysql(c)
+    _setup_mongodb(c)
 
 
-def _setup_certbot():
-    _setup_letsencrypt()
+def _setup_certbot(c):
+    _setup_letsencrypt(c)
 
 
-def _setup_letsencrypt():
+def _setup_letsencrypt(c):
     # https://certbot.eff.org/
     bin_name = '/usr/bin/certbot-auto'
-    sudo(
+    c.sudo(
         'wget https://dl.eff.org/certbot-auto -O %s --tries %s'
         % (bin_name, WGET_TRIES),
-        warn_only=True,
+        warn=True,
     )
-    sudo('chmod +x %s' % bin_name)
-    path = run('echo $PATH')
+    c.sudo('chmod +x %s' % bin_name)
+    path = c.run('echo $PATH', hide=True).stdout
     print('-' * 56)
     print(
         textwrap.dedent(
@@ -180,7 +180,7 @@ def _setup_letsencrypt():
     print('-' * 56)
 
 
-def _setup_nodejs():
+def _setup_nodejs(c):
     versions = json.load(
         urllib2.urlopen('https://npm.taobao.org/mirrors/node/index.json')
     )
@@ -188,16 +188,16 @@ def _setup_nodejs():
         (i for i in versions if i['lts']), key=lambda i: parse_version(i['version'])
     )[-1]
     # already has?
-    if run(
-        'which node && test `node --version` = "%s"' % lts['version'], warn_only=True
-    ).succeeded:
+    if c.run(
+        'which node && test `node --version` = "%s"' % lts['version'], warn=True
+    ).ok:
         print('Already installed nodejs')
         return
     # dist_url = 'https://nodejs.org/dist/latest-{}/node-{}-linux-x64.tar.gz'
     dist_url = 'https://npm.taobao.org/mirrors/node/latest-{}/node-{}-linux-x64.tar.gz'
     dist_url = dist_url.format(lts['lts'].lower(), lts['version'])
-    run('wget -O /tmp/node.tar.xz --tries %s %s' % (WGET_TRIES, dist_url))
-    sudo(
+    c.run('wget -O /tmp/node.tar.xz --tries %s %s' % (WGET_TRIES, dist_url))
+    c.sudo(
         'tar -C /usr/ --exclude CHANGELOG.md --exclude LICENSE '
         '--exclude README.md --strip-components 1 -xf /tmp/node.tar.xz'
     )
@@ -205,46 +205,46 @@ def _setup_nodejs():
     # sudo('setcap cap_net_bind_service=+ep /usr/bin/node')
 
 
-def _setup_yarn():
-    if run('which yarn', warn_only=True).succeeded:
+def _setup_yarn(c):
+    if c.run('which yarn', warn=True).ok:
         print('Already installed yarn')
         return
-    sudo('curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -')
-    sudo(
+    c.sudo('curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -')
+    c.sudo(
         'echo "deb https://dl.yarnpkg.com/debian/ stable main" | '
         'tee /etc/apt/sources.list.d/yarn.list'
     )
-    sudo('apt-get update -yq && apt-get install -yq yarn')
+    c.sudo('apt-get update -yq && apt-get install -yq yarn')
 
 
-def _setup_mysql():
-    if run('which mysqld', warn_only=True).succeeded:
+def _setup_mysql(c):
+    if c.run('which mysqld', warn=True).ok:
         print('Already installed mysql')
         return
     # user/password => root/root
-    sudo(
+    c.sudo(
         "debconf-set-selections <<< 'mysql-server mysql-server/"
         "root_password password root'"
     )
-    sudo(
+    c.sudo(
         "debconf-set-selections <<< 'mysql-server mysql-server/"
         "root_password_again password root'"
     )
-    sudo(
+    c.sudo(
         'apt-get install -yq libmysqld-dev mysql-server mysql-client '
         'libmysqlclient-dev'
     )
 
 
-def _setup_mongodb():
-    if run('which mongod', warn_only=True).succeeded:
+def _setup_mongodb(c):
+    if c.run('which mongod', warn=True).ok:
         print('Already installed mongod')
         return
-    sysinfo = _get_ubuntu_info()
+    sysinfo = _get_ubuntu_info(c)
     if not sysinfo['x64']:
         print('mongodb only supports 64bit system')
         return
-    sudo(
+    c.sudo(
         'apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 '
         '--recv 9DA31620334BD75D9DCB49F368818C72E52529D4'
     )
@@ -258,252 +258,231 @@ def _setup_mongodb():
             'deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu '
             '{}/mongodb-org/4.0 multiverse'.format(sysinfo['codename'])
         )
-    sudo('echo "{}" | tee /etc/apt/sources.list.d/mongodb-org-4.0.list' ''.format(line))
-    sudo('apt-get update -yq && apt-get install -yq mongodb-org')
+    c.sudo(
+        'echo "{}" | tee /etc/apt/sources.list.d/mongodb-org-4.0.list' ''.format(line)
+    )
+    c.sudo('apt-get update -yq && apt-get install -yq mongodb-org')
 
 
-def _setup_nginx():
-    if run('which nginx', warn_only=True).succeeded:
+def _setup_nginx(c):
+    if c.run('which nginx', warn=True).ok:
         print('Already installed nginx')
         return
-    sysinfo = _get_ubuntu_info()
+    sysinfo = _get_ubuntu_info(c)
     # key
-    sudo('curl https://nginx.org/keys/nginx_signing.key | apt-key add -')
+    c.sudo('curl https://nginx.org/keys/nginx_signing.key | apt-key add -')
     # repo
-    sudo(
+    c.sudo(
         'echo -e "deb http://nginx.org/packages/%s/ %s nginx\\n'
         'deb-src http://nginx.org/packages/%s/ %s nginx" | tee '
         '/etc/apt/sources.list.d/nginx.list'
         % (sysinfo['dist'], sysinfo['codename'], sysinfo['dist'], sysinfo['codename'])
     )
-    sudo('apt-get update -yq && apt-get install -yq nginx')
-    put('nginx.conf.example', '/etc/nginx/conf.d/', use_sudo=True)
+    c.sudo('apt-get update -yq && apt-get install -yq nginx')
+    c.put('nginx.conf.example', '/etc/nginx/conf.d/')
 
 
-def _setup_redis():
-    if run('which redis-server', warn_only=True).succeeded:
+def _setup_redis(c):
+    if c.run('which redis-server', warn=True).ok:
         print('Already installed redis')
         return
-    sudo('apt-get install redis-server -yq')
+    c.sudo('apt-get install redis-server -yq')
 
 
-def _setup_docker():
+def _setup_docker(c):
     # https://docs.docker.com/install/linux/docker-ce/ubuntu/
-    if run('which docker', warn_only=True).succeeded:
+    if c.run('which docker', warn=True).ok:
         print('Already installed docker')
         return
-    sysinfo = _get_ubuntu_info()
+    sysinfo = _get_ubuntu_info(c)
     if sysinfo['dist'] == 'ubuntu' and sysinfo['release'] == '14.04':
-        sudo('apt-get update -yq')
-        sudo(
+        c.sudo('apt-get update -yq')
+        c.sudo(
             'apt-get install -yq linux-image-extra-virtual '
             'linux-image-extra-$(uname -r)'
         )
-    sudo(
+    c.sudo(
         'apt-get install -yq apt-transport-https ca-certificates '
         'software-properties-common curl gnupg2'
     )
-    sudo(
+    c.sudo(
         'curl -fsSL https://download.docker.com/linux/{}/gpg | '
         'apt-key add -'.format(sysinfo['dist'])
     )
-    sudo(
+    c.sudo(
         'add-apt-repository -y "deb [arch=amd64] '
         'https://download.docker.com/linux/{dist} {codename} stable"'
         ''.format(**sysinfo)
     )
-    sudo('apt-get update -yq && apt-get install -yq docker-ce')
+    c.sudo('apt-get update -yq && apt-get install -yq docker-ce')
     # docker logging rotate
-    sudo(
+    c.sudo(
         r'''echo -e '{\n  "log-driver": "json-file",\n  "log-opts": '''
         r'''{\n    "max-size": "100m",\n    "max-file": "5"\n  }\n}' '''
         r'''> /etc/docker/daemon.json'''
     )
-    sudo('service docker restart', warn_only=True)
+    c.sudo('service docker restart', warn=True)
     # fix permission issue
-    if run('test $USER = root', warn_only=True).failed:
-        run('sudo usermod -a -G docker $USER', warn_only=True)
+    if c.run('test $USER = root', warn=True).failed:
+        c.run('sudo usermod -a -G docker $USER', warn=True)
     # docker-compose
-    sudo(
+    c.sudo(
         'curl -L "https://github.com/docker/compose/releases/latest/download/'
         'docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose',
-        warn_only=True,
+        warn=True,
     )
-    sudo('chmod +x /usr/local/bin/docker-compose', warn_only=True)
+    c.sudo('chmod +x /usr/local/bin/docker-compose', warn=True)
 
 
-def _autostart(cmd):
-    script = '/etc/cron.d/autostart'
-    sudo('chmod +x %s' % script, warn_only=True)
-    sudo('echo "@reboot %s" | tee -a %s' % (cmd, script))
-
-
-def _setup_mariadb():
+def _setup_mariadb(c):
     '''
     can be used to migrate mysql to mariadb
     '''
-    if run('test -f /etc/mysql/conf.d/mariadb.cnf ', warn_only=True).succeeded:
+    if c.run('test -f /etc/mysql/conf.d/mariadb.cnf ', warn=True).ok:
         print('Already installed mariadb')
         return
     # user/password => root/root
-    sudo(
+    c.sudo(
         "debconf-set-selections <<< 'mariadb-server mysql-server/"
         "root_password password root'"
     )
-    sudo(
+    c.sudo(
         "debconf-set-selections <<< 'mariadb-server mysql-server/"
         "root_password_again password root'"
     )
     # https://mariadb.com/kb/en/mariadb/installing-mariadb-deb-files/
-    sysinfo = _get_ubuntu_info()
+    sysinfo = _get_ubuntu_info(c)
     key = '0xcbcb082a1bb943db'
     if _V(sysinfo['release']) >= _V('16.04'):
         key = '0xF1656F24C74CD1D8'
-    sudo('apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 %s' % key)
-    sudo('apt-get install -yq software-properties-common')
-    sudo(
+    c.sudo('apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 %s' % key)
+    c.sudo('apt-get install -yq software-properties-common')
+    c.sudo(
         "add-apt-repository -y 'deb http://ftp.osuosl.org/pub/mariadb/repo/"
         "10.2/ubuntu %s main'" % sysinfo['codename']
     )
-    sudo('apt-get update -yq')
-    sudo('service mysql stop', warn_only=True)
-    sudo('apt-get install -yq mariadb-server libmysqld-dev', warn_only=True)
+    c.sudo('apt-get update -yq')
+    c.sudo('service mysql stop', warn=True)
+    c.sudo('apt-get install -yq mariadb-server libmysqld-dev', warn=True)
 
 
-def _setup_solc():
+def _setup_solc(c):
     # https://docs.docker.com/engine/installation/linux/ubuntu/
-    if run('which solc', warn_only=True).succeeded:
+    if c.run('which solc', warn=True).ok:
         print('Already installed solc')
         return
-    sudo('add-apt-repository -y ppa:ethereum/ethereum')
-    sudo('apt-get update -yq')
-    sudo('apt-get install -yq solc')
+    c.sudo('add-apt-repository -y ppa:ethereum/ethereum')
+    c.sudo('apt-get update -yq')
+    c.sudo('apt-get install -yq solc')
 
 
-def _setup_mono():
+def _setup_mono(c):
     # http://www.mono-project.com/download/#download-lin
-    if run('which mono', warn_only=True).succeeded:
+    if c.run('which mono', warn=True).ok:
         print('Already installed mono')
         return
-    sudo(
+    c.sudo(
         'apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys '
         '3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF',
-        warn_only=True,
+        warn=True,
     )
-    sysinfo = _get_ubuntu_info()
-    sudo(
+    sysinfo = _get_ubuntu_info(c)
+    c.sudo(
         'echo "deb http://download.mono-project.com/repo/ubuntu %s main" | tee'
         ' /etc/apt/sources.list.d/mono-official.list' % sysinfo['codename'],
-        warn_only=True,
+        warn=True,
     )
-    sudo('apt-get update -yq && apt-get install -y mono-devel')
+    c.sudo('apt-get update -yq && apt-get install -y mono-devel')
 
 
-def _setup_go():
+def _setup_go(c):
     # https://golang.org/doc/install
     url = 'https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz'
-    if run('which go', warn_only=True).succeeded:
+    if c.run('which go', warn=True).ok:
         print('Already installed go')
         return
-    sudo(
+    c.sudo(
         'wget %s -O - --tries %s | tar -C /usr/local -xzf -' % (url, WGET_TRIES),
-        warn_only=True,
+        warn=True,
     )
-    append('/etc/profile', 'export PATH=$PATH:/usr/local/go/bin', use_sudo=True)
+    append(c, '/etc/profile', 'export PATH=$PATH:/usr/local/go/bin', sudo=True)
 
 
-def _try_install_latest(package):
-    sysinfo = _get_ubuntu_info()
-    url = (
-        'https://raw.githubusercontent.com/ichuan/packages/master'
-        '/{dist}/{release}/{package}/latest.deb'
-        ''.format(package=package, **sysinfo)
-    )
-    if run('wget -O /tmp/til.deb {}'.format(url), warn_only=True).succeeded:
-        # latest tmux
-        sudo('dpkg -i /tmp/til.deb')
-    else:
-        # old
-        sudo('apt-get install -y {}'.format(package))
-
-
-def _setup_debian():
-    if not run('which sudo', warn_only=True).succeeded:
-        run('apt-get install sudo -y')
-    _setup_aptget()
-    sudo(
+def _setup_debian(c):
+    if not c.run('which sudo', warn=True).ok:
+        c.run('apt-get install sudo -y')
+    _setup_aptget(c)
+    c.sudo(
         'apt-get install -yq git unzip curl wget tar sudo zip '
         'sqlite3 tmux ntp build-essential gettext libcap2-bin '
         'silversearcher-ag htop jq python dirmngr cron'
     )
-    sudo('systemctl enable ntp.service')
-    sudo('systemctl start ntp.service')
-    _try_install_latest('tmux')
+    c.sudo('systemctl enable ntp.service')
+    c.sudo('systemctl start ntp.service')
     # add-apt-repository
-    sudo('apt-get install -yq software-properties-common', warn_only=True)
-    _setup_env()
-    _setup_bbr()
+    c.sudo('apt-get install -yq software-properties-common', warn=True)
+    _setup_env(c)
+    _setup_bbr(c)
 
 
-def setup_swap(size='1'):
+@task
+def setup_swap(c, size=1):
     '''
     添加 ?G 虚拟内存
     '''
     path = '/swap%sG' % size
-    if run('test -f %s' % path, warn_only=True).succeeded:
+    if c.run('test -f %s' % path, warn=True).ok:
         print('%s already exists' % path)
         return
-    sudo('fallocate -l %sG %s' % (size, path))
-    sudo('chmod 600 ' + path)
-    sudo('mkswap ' + path)
-    sudo('swapon ' + path)
-    sudo('echo vm.swappiness=10 >> /etc/sysctl.conf')
-    sudo('echo "%s none swap sw 00" >> /etc/fstab' % path)
+    c.sudo('fallocate -l %sG %s' % (size, path))
+    c.sudo('chmod 600 ' + path)
+    c.sudo('mkswap ' + path)
+    c.sudo('swapon ' + path)
+    c.sudo('echo vm.swappiness=10 >> /etc/sysctl.conf')
+    c.sudo('echo "%s none swap sw 00" >> /etc/fstab' % path)
 
 
-def _setup_python3():
+def _setup_python3(c):
     # url = 'https://cdn.npm.taobao.org/dist/python/3.9.2/Python-3.9.2.tgz'
     url = 'https://www.python.org/ftp/python/3.9.2/Python-3.9.2.tgz'
-    sudo(
+    c.sudo(
         'apt install -y build-essential checkinstall libreadline-gplv2-dev '
         'libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev '
         'libc6-dev libbz2-dev libffi-dev'
     )
-    with cd('/tmp'):
-        run('curl %s > py.tgz' % url)
-        run('tar xf py.tgz')
-        with cd('Python-3.*'):
-            sudo('./configure --enable-optimizations')
-            sudo('make altinstall')
+    c.run('cd /tmp && curl %s > py.tgz' % url)
+    c.run('cd /tmp/ && tar xf py.tgz')
+    c.sudo('cd /tmp/Python-3.* && ./configure --enable-optimizations')
+    c.sudo('cd /tmp/Python-3.* && make altinstall')
 
 
-def _setup_bbr():
+def _setup_bbr(c):
     '''
     Google bbr: https://github.com/google/bbr
     '''
-    if sudo(
-        'sysctl net.ipv4.tcp_available_congestion_control | grep -q bbr', warn_only=True
-    ).succeeded:
+    if c.sudo(
+        'sysctl net.ipv4.tcp_available_congestion_control | grep -q bbr', warn=True
+    ).ok:
         print('bbr already enabled')
         return
-    kernel_version = run('uname -r', shell=False).strip()
+    kernel_version = c.run('uname -r', hide=True).stdout.strip()
     if _V(kernel_version) < _V('4.9'):
         print('bbr need linux 4.9+, please upgrade your kernel')
         return
     sysconf = ['net.core.default_qdisc = fq', 'net.ipv4.tcp_congestion_control = bbr']
-    append('/etc/sysctl.conf', sysconf, use_sudo=True)
-    sudo('sysctl -p')
+    append(c, '/etc/sysctl.conf', sysconf, sudo=True)
+    c.sudo('sysctl -p')
 
 
-def _setup_ossutil():
+def _setup_ossutil(c):
     '''
     aliyun ossutil
     https://help.aliyun.com/document_detail/120075.html
     '''
-    sudo(
+    c.sudo(
         'wget -O /usr/local/bin/ossutil http://gosspublic.alicdn.com/ossutil/'
         '1.7.0/ossutil64 && chmod +x /usr/local/bin/ossutil',
-        warn_only=True,
+        warn=True,
     )
     print(
         'Usage: ossutil --access-key-id=<AK> --access-key-secret=<SK> '

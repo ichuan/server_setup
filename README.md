@@ -31,10 +31,13 @@ Quickly setup a ubuntu server
 
 ```shell
 # basic setup (env and default softwares)
-fab -H host1 setup
+fab --prompt-for-login-password -H host1 setup
 # setup env
-fab -H host1 setup:env
+fab --prompt-for-login-password -H host1 setup --what env
 # setup specific software(s)
-fab -H host1 setup:mysql
-fab -H host1 setup:nodejs,mysql
+fab --prompt-for-login-password -H host1 setup --what mysql
+fab --prompt-for-login-password -H host1 setup --what nodejs,mysql
+
+# my fav
+fab --prompt-for-login-password -H host1 setup --what debian,docker
 ```

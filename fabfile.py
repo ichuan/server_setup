@@ -10,12 +10,21 @@ import urllib2
 from pkg_resources import parse_version
 
 from fabric import task
-from patchwork.files import append, exists, contains
+from patchwork.files import exists, contains
 from distutils.version import LooseVersion as _V
 
 # wget max try
 WGET_TRIES = 3
 G = {}
+
+
+def append(c, filepath, text, sudo=True):
+    if type(text) is list:
+        text = '\n'.join(text)
+    text = text.replace('\n', '\\n')
+    prefix = 'sudo' if sudo else ''
+    cmd = 'echo -e "{}" | {} tee -a {}'.format(text, prefix, filepath)
+    return c.run(cmd)
 
 
 @task
@@ -38,14 +47,12 @@ def setup(c, what=''):
 
 
 def _disable_ipv6(c):
-    sysconf_no_ipv6 = '\n'.join(
-        [
-            'net.ipv6.conf.all.disable_ipv6 = 1',
-            'net.ipv6.conf.default.disable_ipv6 = 1',
-            'net.ipv6.conf.lo.disable_ipv6 = 1',
-        ]
-    )
-    append(c, '/etc/sysctl.conf', sysconf_no_ipv6, sudo=True)
+    sysconf_no_ipv6 = [
+        'net.ipv6.conf.all.disable_ipv6 = 1',
+        'net.ipv6.conf.default.disable_ipv6 = 1',
+        'net.ipv6.conf.lo.disable_ipv6 = 1',
+    ]
+    append(c, '/etc/sysctl.conf', sysconf_no_ipv6)
     c.sudo('sysctl -p')
 
 
@@ -405,7 +412,7 @@ def _setup_go(c):
         'wget %s -O - --tries %s | sudo tar -C /usr/local -xzf -' % (url, WGET_TRIES),
         warn=True,
     )
-    append(c, '/etc/profile', 'export PATH=$PATH:/usr/local/go/bin', sudo=True)
+    append(c, '/etc/profile', 'export PATH=$PATH:/usr/local/go/bin')
 
 
 def _setup_debian(c):
@@ -470,7 +477,7 @@ def _setup_bbr(c):
         print('bbr need linux 4.9+, please upgrade your kernel')
         return
     sysconf = ['net.core.default_qdisc = fq', 'net.ipv4.tcp_congestion_control = bbr']
-    append(c, '/etc/sysctl.conf', sysconf, sudo=True)
+    append(c, '/etc/sysctl.conf', sysconf)
     c.sudo('sysctl -p')
 
 

@@ -103,16 +103,16 @@ def _setup_env(c):
 
 
 def _limits(c):
-    c.sudo(
+    c.run(
         r'echo -e "*    soft    nofile  500000\n*    hard    nofile  500000'
         r'\nroot soft    nofile  500000\nroot hard    nofile  500000"'
-        r' > /etc/security/limits.conf'
+        r' | sudo tee /etc/security/limits.conf'
     )
     # https://underyx.me/2015/05/18/raising-the-maximum-number-of-file-descriptors
     line = 'session required pam_limits.so'
     for p in ('/etc/pam.d/common-session', '/etc/pam.d/common-session-noninteractive'):
         if exists(c, p) and not contains(c, p, line):
-            c.sudo('echo -e "%s" >> %s' % (line, p))
+            c.run('echo -e "%s" | sudo tee -a %s' % (line, p))
     # "systemd garbage"
     systemd_conf = '/etc/systemd/system.conf'
     if exists(c, systemd_conf):
@@ -126,11 +126,11 @@ def _limits(c):
 def _sysctl(c):
     path = '/etc/sysctl.conf'
     if not contains(c, path, 'vm.overcommit_memory = 1'):
-        c.sudo('echo "vm.overcommit_memory = 1" >> %s' % path)
+        c.run('echo "vm.overcommit_memory = 1" | sudo tee -a %s' % path)
     if not contains(c, path, 'net.core.somaxconn = 65535'):
-        c.sudo('echo "net.core.somaxconn = 65535" >> %s' % path)
+        c.run('echo "net.core.somaxconn = 65535" | sudo tee -a %s' % path)
     if not contains(c, path, 'fs.file-max = 6553560'):
-        c.sudo('echo "fs.file-max = 6553560" >> %s' % path)
+        c.run('echo "fs.file-max = 6553560" | sudo tee -a %s' % path)
     c.sudo('sysctl -p')
 
 
@@ -208,12 +208,12 @@ def _setup_yarn(c):
     if c.run('which yarn', warn=True).ok:
         print('Already installed yarn')
         return
-    c.sudo('curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -')
-    c.sudo(
-        'echo "deb https://dl.yarnpkg.com/debian/ stable main" | '
+    c.run('curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -')
+    c.run(
+        'echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo '
         'tee /etc/apt/sources.list.d/yarn.list'
     )
-    c.sudo('apt-get update -yq && apt-get install -yq yarn')
+    c.run('sudo apt-get update -yq && sudo apt-get install -yq yarn')
 
 
 def _setup_mysql(c):
@@ -257,10 +257,11 @@ def _setup_mongodb(c):
             'deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu '
             '{}/mongodb-org/4.0 multiverse'.format(sysinfo['codename'])
         )
-    c.sudo(
-        'echo "{}" | tee /etc/apt/sources.list.d/mongodb-org-4.0.list' ''.format(line)
+    c.run(
+        'echo "{}" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.0.list'
+        ''.format(line)
     )
-    c.sudo('apt-get update -yq && apt-get install -yq mongodb-org')
+    c.run('sudo apt-get update -yq && sudo apt-get install -yq mongodb-org')
 
 
 def _setup_nginx(c):
@@ -269,15 +270,15 @@ def _setup_nginx(c):
         return
     sysinfo = _get_ubuntu_info(c)
     # key
-    c.sudo('curl https://nginx.org/keys/nginx_signing.key | apt-key add -')
+    c.run('curl https://nginx.org/keys/nginx_signing.key | sudo apt-key add -')
     # repo
-    c.sudo(
+    c.run(
         'echo -e "deb http://nginx.org/packages/%s/ %s nginx\\n'
-        'deb-src http://nginx.org/packages/%s/ %s nginx" | tee '
+        'deb-src http://nginx.org/packages/%s/ %s nginx" | sudo tee '
         '/etc/apt/sources.list.d/nginx.list'
         % (sysinfo['dist'], sysinfo['codename'], sysinfo['dist'], sysinfo['codename'])
     )
-    c.sudo('apt-get update -yq && apt-get install -yq nginx')
+    c.run('sudo apt-get update -yq && sudo apt-get install -yq nginx')
     c.put('nginx.conf.example', '/etc/nginx/conf.d/')
 
 
@@ -304,21 +305,21 @@ def _setup_docker(c):
         'apt-get install -yq apt-transport-https ca-certificates '
         'software-properties-common curl gnupg2'
     )
-    c.sudo(
+    c.run(
         'curl -fsSL https://download.docker.com/linux/{}/gpg | '
-        'apt-key add -'.format(sysinfo['dist'])
+        'sudo apt-key add -'.format(sysinfo['dist'])
     )
     c.sudo(
         'add-apt-repository -y "deb [arch=amd64] '
         'https://download.docker.com/linux/{dist} {codename} stable"'
         ''.format(**sysinfo)
     )
-    c.sudo('apt-get update -yq && apt-get install -yq docker-ce')
+    c.run('sudo apt-get update -yq && sudo apt-get install -yq docker-ce')
     # docker logging rotate
-    c.sudo(
+    c.run(
         r'''echo -e '{\n  "log-driver": "json-file",\n  "log-opts": '''
         r'''{\n    "max-size": "100m",\n    "max-file": "5"\n  }\n}' '''
-        r'''> /etc/docker/daemon.json'''
+        r'''| sudo tee /etc/docker/daemon.json'''
     )
     c.sudo('service docker restart', warn=True)
     # fix permission issue
@@ -386,12 +387,12 @@ def _setup_mono(c):
         warn=True,
     )
     sysinfo = _get_ubuntu_info(c)
-    c.sudo(
-        'echo "deb http://download.mono-project.com/repo/ubuntu %s main" | tee'
+    c.run(
+        'echo "deb http://download.mono-project.com/repo/ubuntu %s main" | sudo tee'
         ' /etc/apt/sources.list.d/mono-official.list' % sysinfo['codename'],
         warn=True,
     )
-    c.sudo('apt-get update -yq && apt-get install -y mono-devel')
+    c.run('sudo apt-get update -yq && sudo apt-get install -y mono-devel')
 
 
 def _setup_go(c):
@@ -400,8 +401,8 @@ def _setup_go(c):
     if c.run('which go', warn=True).ok:
         print('Already installed go')
         return
-    c.sudo(
-        'wget %s -O - --tries %s | tar -C /usr/local -xzf -' % (url, WGET_TRIES),
+    c.run(
+        'wget %s -O - --tries %s | sudo tar -C /usr/local -xzf -' % (url, WGET_TRIES),
         warn=True,
     )
     append(c, '/etc/profile', 'export PATH=$PATH:/usr/local/go/bin', sudo=True)
@@ -451,8 +452,8 @@ def _setup_python3(c):
     )
     c.run('cd /tmp && curl %s > py.tgz' % url)
     c.run('cd /tmp/ && tar xf py.tgz')
-    c.sudo('cd /tmp/Python-3.* && ./configure --enable-optimizations')
-    c.sudo('cd /tmp/Python-3.* && make altinstall')
+    c.run('cd /tmp/Python-3.* && ./configure --enable-optimizations')
+    c.run('cd /tmp/Python-3.* && sudo make altinstall')
 
 
 def _setup_bbr(c):
@@ -478,9 +479,9 @@ def _setup_ossutil(c):
     aliyun ossutil
     https://help.aliyun.com/document_detail/120075.html
     '''
-    c.sudo(
-        'wget -O /usr/local/bin/ossutil http://gosspublic.alicdn.com/ossutil/'
-        '1.7.0/ossutil64 && chmod +x /usr/local/bin/ossutil',
+    c.run(
+        'sudo wget -O /usr/local/bin/ossutil http://gosspublic.alicdn.com/ossutil/'
+        '1.7.0/ossutil64 && sudo chmod +x /usr/local/bin/ossutil',
         warn=True,
     )
     print(

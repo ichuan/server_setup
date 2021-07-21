@@ -84,9 +84,8 @@ def _setup_env(c):
     # dotfiles
     c.run(
         '[ ! -f ~/.tmux.conf ] && { '
-        'git clone --single-branch --recursive '
-        'https://github.com/ichuan/dotfiles.git '
-        "&& bash dotfiles/bootstrap.sh -f; }",
+        'wget https://github.com/ichuan/dotfiles/releases/latest/download/dotfiles.'
+        'tar.gz -O - | tar xzf - && bash dotfiles/bootstrap.sh -f; }',
         warn=True,
     )
     c.run('rm -rf dotfiles ~/Tomorrow_Night_Bright.terminal')

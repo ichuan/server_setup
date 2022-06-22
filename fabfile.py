@@ -463,17 +463,53 @@ def _setup_python3(c):
 
 def _setup_python(c):
     # Prerequisites: git, dotfiles (in debian)
-    c.run(
-        'curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash'
-    )
-    c.sudo(
-        'apt install -y build-essential checkinstall libncursesw5-dev libssl-dev '
-        'libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev libffi-dev '
-        'libreadline-dev liblzma-dev'
-    )
+    if not c.run('which pyenv', warn=True).ok:
+        c.run(
+            'curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash'
+        )
+        c.sudo(
+            'apt install -y build-essential checkinstall libncursesw5-dev libssl-dev '
+            'libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev libffi-dev '
+            'libreadline-dev liblzma-dev'
+        )
+        c.run(
+            r'echo -e "export PYENV_ROOT=\"\$HOME/.pyenv\"\n'
+            r'export PATH=\"\$PYENV_ROOT/bin:\$PATH\"\n'
+            r'command -v pyenv > /dev/null && eval \"\$(pyenv init --path)\"" '
+            r'>> .bash_profile'
+        )
     # c.run('pyenv install 2.7.18')
     c.run('PATH="$HOME/.pyenv/bin:$PATH" pyenv install 3.10.5')
-    c.run('PATH="$HOME/.pyenv/bin:$PATH" pyenv global 3.10.5')
+    _setup_pipenv(c)
+
+
+def _setup_pipenv(c):
+    '''
+    Install pipenv to user dir
+    '''
+    sysinfo = _get_ubuntu_info(c)
+    if sysinfo['dist'] == 'debian':
+        print('Installing python3-distutils...')
+        c.sudo('apt update && apt install -y python3-distutils')
+    _sh = textwrap.dedent(
+        r'''
+        py=python
+        if [ -f /usr/bin/python3 ]; then
+          py=/usr/bin/python3
+        elif [ -f /usr/bin/python ]; then
+          py=/usr/bin/python
+        fi
+        echo "Using python: $py"
+        # pip
+        curl -sSL https://bootstrap.pypa.io/get-pip.py | $py
+        # pipenv
+        $py -m pip install --user pipenv
+        # bin
+        echo "export PATH=\"$($py -m site --user-base)/bin:\$PATH\"" >> ~/.bash_profile
+        echo "export PIPENV_VENV_IN_PROJECT=1" >> ~/.bash_profile
+        '''
+    )
+    c.run(_sh)
 
 
 def _setup_bbr(c):

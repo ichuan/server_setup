@@ -472,8 +472,8 @@ def _setup_python(c):
         'libreadline-dev liblzma-dev'
     )
     # c.run('pyenv install 2.7.18')
-    c.run('pyenv install 3.10.5')
-    c.run('pyenv global 3.10.5')
+    c.run('PATH="$HOME/.pyenv/bin:$PATH" pyenv install 3.10.5')
+    c.run('PATH="$HOME/.pyenv/bin:$PATH" pyenv global 3.10.5')
 
 
 def _setup_bbr(c):

@@ -42,7 +42,6 @@ def setup(c, what=''):
                 func(c)
         return
     _setup_debian(c)
-    _setup_env(c)
 
 
 def _disable_ipv6(c):
@@ -441,7 +440,7 @@ def _setup_debian(c):
 @task
 def setup_swap(c, size=1):
     '''
-    添加 ?G 虚拟内存
+    Install $size GiB swapfile
     '''
     path = '/swap%sG' % size
     if c.run('test -f %s' % path, warn=True).ok:

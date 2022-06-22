@@ -1,43 +1,58 @@
-Quickly setup a ubuntu server
+# server setup
+Quickly setup a debian server
 
-## Environment and Tune
-+ ichuan/dotfiles
-+ limits.conf
-+ UTC timezone
-
-## Softwares Included
-+ git
-+ utils(zip, unzip, unrar, curl, wget, tar)
-+ letsencrypt
-+ nodejs
-+ yarn
-+ python-pip
-+ python-virtualenv
-+ sqlite3
-+ tmux
-+ ntp
-+ build-essential
-+ pillow reqs
-+ uwsgi
-+ nginx
-
-
-## Optional Softwares
-+ MySQL(root/root)
-+ mongodb
-
+## Install
+```
+pip install -r requirements.txt
+```
 
 ## Usage
+### Setup a debian server
 
-```shell
-# basic setup (env and default softwares)
-fab --prompt-for-login-password -H host1 setup
-# setup env
-fab --prompt-for-login-password -H host1 setup --what env
-# setup specific software(s)
-fab --prompt-for-login-password -H host1 setup --what mysql
-fab --prompt-for-login-password -H host1 setup --what nodejs,mysql
+```
+fab -H root@hostip setup
+```
 
-# my fav
-fab --prompt-for-login-password -H host1 setup --what debian,docker
+Including:
+
+- Common essentials like `git/zip/unzip/curl/wget/tmux` etc.
+- ntp service
+- dotfiles from [ichuan/dotfiles](https://github.com/ichuan/dotfiles)
+- UTC timezone
+- tuned `security/limits.conf` and `sysctl.conf`
+- disable debian upgrade check
+- [bbr](https://github.com/google/bbr)
+- diable IPv6
+
+### Setup softwares
+
+```
+fab -H host1 setup --what nodejs,docker
+```
+
+Available softwares:
+
+- letsencrypt
+- nodejs
+- yarn
+- mysql
+- mariadb
+- mongodb
+- nginx
+- redis
+- docker
+- solc
+- mono
+- go
+- python
+
+
+### Install swap
+
+```
+# install a swapfile of 1G
+fab -H host2 setup-swap
+
+# install a swapfile of 2G
+fab -H host2 setup-swap --size 2
 ```

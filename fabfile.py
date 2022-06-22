@@ -41,18 +41,18 @@ def setup(c, what=''):
             else:
                 func(c)
         return
-    _disable_ipv6(c)
     _setup_debian(c)
     _setup_env(c)
 
 
 def _disable_ipv6(c):
-    sysconf_no_ipv6 = [
+    for line in [
         'net.ipv6.conf.all.disable_ipv6 = 1',
         'net.ipv6.conf.default.disable_ipv6 = 1',
         'net.ipv6.conf.lo.disable_ipv6 = 1',
-    ]
-    append(c, '/etc/sysctl.conf', sysconf_no_ipv6)
+    ]:
+        if not contains(c, '/etc/sysctl.conf', line):
+            append(c, '/etc/sysctl.conf', line)
     c.sudo('sysctl -p')
 
 
@@ -119,7 +119,7 @@ def _limits(c):
     line = 'session required pam_limits.so'
     for p in ('/etc/pam.d/common-session', '/etc/pam.d/common-session-noninteractive'):
         if exists(c, p) and not contains(c, p, line):
-            c.run('echo -e "%s" | sudo tee -a %s' % (line, p))
+            append(c, p, line)
     # "systemd garbage"
     systemd_conf = '/etc/systemd/system.conf'
     if exists(c, systemd_conf):
@@ -132,12 +132,13 @@ def _limits(c):
 
 def _sysctl(c):
     path = '/etc/sysctl.conf'
-    if not contains(c, path, 'vm.overcommit_memory = 1'):
-        c.run('echo "vm.overcommit_memory = 1" | sudo tee -a %s' % path)
-    if not contains(c, path, 'net.core.somaxconn = 65535'):
-        c.run('echo "net.core.somaxconn = 65535" | sudo tee -a %s' % path)
-    if not contains(c, path, 'fs.file-max = 6553560'):
-        c.run('echo "fs.file-max = 6553560" | sudo tee -a %s' % path)
+    for line in (
+        'vm.overcommit_memory = 1',
+        'net.core.somaxconn = 65535',
+        'fs.file-max = 6553560',
+    ):
+        if not contains(c, path, line):
+            append(c, path, line)
     c.sudo('sysctl -p')
 
 
@@ -199,8 +200,8 @@ def _setup_nodejs(c):
     ).ok:
         print('Already installed nodejs')
         return
-    # dist_url = 'https://nodejs.org/dist/latest-{}/node-{}-linux-x64.tar.gz'
-    dist_url = 'https://npm.taobao.org/mirrors/node/latest-{}/node-{}-linux-x64.tar.gz'
+    dist_url = 'https://nodejs.org/dist/latest-{}/node-{}-linux-x64.tar.gz'
+    # dist_url = 'https://npm.taobao.org/mirrors/node/latest-{}/node-{}-linux-x64.tar.gz'
     dist_url = dist_url.format(lts['lts'].lower(), lts['version'])
     c.run('wget -O /tmp/node.tar.xz --tries %s %s' % (WGET_TRIES, dist_url))
     c.sudo(
@@ -286,7 +287,8 @@ def _setup_nginx(c):
         % (sysinfo['dist'], sysinfo['codename'], sysinfo['dist'], sysinfo['codename'])
     )
     c.run('sudo apt-get update -yq && sudo apt-get install -yq nginx')
-    c.put('nginx.conf.example', '/etc/nginx/conf.d/')
+    c.put('nginx.conf.example', '/tmp/')
+    c.run('sudo mv /tmp/nginx.conf.example /etc/nginx/conf.d/')
 
 
 def _setup_redis(c):
@@ -421,15 +423,19 @@ def _setup_debian(c):
     _setup_aptget(c)
     c.sudo(
         'apt-get install -yq git unzip curl wget tar sudo zip '
-        'sqlite3 tmux ntp build-essential gettext libcap2-bin '
-        'silversearcher-ag htop jq python dirmngr cron'
+        'sqlite3 tmux ntp build-essential gettext libcap2-bin netcat '
+        'silversearcher-ag htop jq python2 dirmngr cron rsync locales'
     )
     c.sudo('systemctl enable ntp.service')
     c.sudo('systemctl start ntp.service')
     # add-apt-repository
     c.sudo('apt-get install -yq software-properties-common', warn=True)
     _setup_env(c)
+    # locale
+    c.run('echo en_US.UTF-8 UTF-8 | sudo tee /etc/locale.gen')
+    c.sudo('locale-gen en_US.UTF-8')
     _setup_bbr(c)
+    _disable_ipv6(c)
 
 
 @task
@@ -445,22 +451,30 @@ def setup_swap(c, size=1):
     c.sudo('chmod 600 ' + path)
     c.sudo('mkswap ' + path)
     c.sudo('swapon ' + path)
-    c.sudo('echo vm.swappiness=10 >> /etc/sysctl.conf')
-    c.sudo('echo "%s none swap sw 00" >> /etc/fstab' % path)
+    if not contains(c, '/etc/sysctl.conf', 'vm.swappiness=10'):
+        append(c, '/etc/sysctl.conf', 'vm.swappiness=10')
+    line = "%s none swap sw 00" % path
+    if not contains(c, '/etc/fstab', line):
+        append(c, '/etc/fstab', line)
 
 
 def _setup_python3(c):
-    # url = 'https://cdn.npm.taobao.org/dist/python/3.9.2/Python-3.9.2.tgz'
-    url = 'https://www.python.org/ftp/python/3.9.2/Python-3.9.2.tgz'
-    c.sudo(
-        'apt install -y build-essential checkinstall libreadline-gplv2-dev '
-        'libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev '
-        'libc6-dev libbz2-dev libffi-dev'
+    _setup_python(c)
+
+
+def _setup_python(c):
+    # Prerequisites: git, dotfiles (in debian)
+    c.run(
+        'curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash'
     )
-    c.run('cd /tmp && curl %s > py.tgz' % url)
-    c.run('cd /tmp/ && tar xf py.tgz')
-    c.run('cd /tmp/Python-3.* && ./configure --enable-optimizations')
-    c.run('cd /tmp/Python-3.* && sudo make altinstall')
+    c.sudo(
+        'apt install -y build-essential checkinstall libncursesw5-dev libssl-dev '
+        'libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev libffi-dev '
+        'libreadline-dev liblzma-dev'
+    )
+    # c.run('pyenv install 2.7.18')
+    c.run('pyenv install 3.10.5')
+    c.run('pyenv global 3.10.5')
 
 
 def _setup_bbr(c):
@@ -476,8 +490,12 @@ def _setup_bbr(c):
     if _V(kernel_version) < _V('4.9'):
         print('bbr need linux 4.9+, please upgrade your kernel')
         return
-    sysconf = ['net.core.default_qdisc = fq', 'net.ipv4.tcp_congestion_control = bbr']
-    append(c, '/etc/sysctl.conf', sysconf)
+    for line in [
+        'net.core.default_qdisc = fq',
+        'net.ipv4.tcp_congestion_control = bbr',
+    ]:
+        if not contains(c, '/etc/sysctl.conf', line):
+            append(c, '/etc/sysctl.conf', line)
     c.sudo('sysctl -p')
 
 

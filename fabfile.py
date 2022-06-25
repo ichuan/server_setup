@@ -549,3 +549,16 @@ def _setup_ossutil(c):
         '--endpoint=oss-cn-zhangjiakou-internal.aliyuncs.com cp <SRC_FILE> '
         'oss://<BUCKET_NAME>/<PATH>'
     )
+
+
+def _setup_caddy(c):
+    '''
+    caddy with cloudflare module
+    '''
+    c.run(
+        "sudo wget -O /usr/bin/caddy 'https://caddyserver.com/api/download?os=linux"
+        "&arch=amd64&p=github.com%2Fcaddy-dns%2Fcloudflare' && "
+        "sudo chmod +x /usr/bin/caddy && "
+        "sudo setcap 'cap_net_bind_service=+ep' /usr/bin/caddy",
+        warn=True,
+    )

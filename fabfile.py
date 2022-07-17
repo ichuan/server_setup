@@ -463,7 +463,7 @@ def _setup_python3(c):
 
 def _setup_python(c):
     # Prerequisites: git, dotfiles (in debian)
-    if not c.run('which pyenv', warn=True).ok:
+    if not exists(c, '~/.pyenv'):
         c.run(
             'curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash'
         )
@@ -472,15 +472,17 @@ def _setup_python(c):
             'libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev libffi-dev '
             'libreadline-dev liblzma-dev'
         )
-        c.run(
-            r'echo -e "export PYENV_ROOT=\"\$HOME/.pyenv\"\n'
-            r'export PATH=\"\$PYENV_ROOT/bin:\$PATH\"\n'
-            r'command -v pyenv > /dev/null && eval \"\$(pyenv init --path)\"" '
-            r'>> .bash_profile'
-        )
+        if not c.run('grep -q pyenv ~/.bash_profile').ok:
+            c.run(
+                r'echo -e "export PYENV_ROOT=\"\$HOME/.pyenv\"\n'
+                r'export PATH=\"\$PYENV_ROOT/bin:\$PATH\"\n'
+                r'command -v pyenv > /dev/null && eval \"\$(pyenv init --path)\"" '
+                r'>> ~/.bash_profile'
+            )
     # c.run('pyenv install 2.7.18')
-    c.run('PATH="$HOME/.pyenv/bin:$PATH" pyenv install 3.10.5')
-    _setup_pipenv(c)
+    c.run('source ~/.bash_profile && pyenv install 3.10:latest')
+    # _setup_pipenv(c)
+    _setup_poetry(c)
 
 
 def _setup_pipenv(c):
@@ -507,6 +509,24 @@ def _setup_pipenv(c):
         # bin
         echo "export PATH=\"$($py -m site --user-base)/bin:\$PATH\"" >> ~/.bash_profile
         echo "export PIPENV_VENV_IN_PROJECT=1" >> ~/.bash_profile
+        '''
+    )
+    c.run(_sh)
+
+
+def _setup_poetry(c):
+    '''
+    Install poetry based on pyenv
+    '''
+    _sh = textwrap.dedent(
+        r'''
+        export PATH="$HOME/.pyenv/bin:$PATH"
+        export PYENV_VERSION=`pyenv versions --bare --skip-aliases | sort -V | tail -n 1`
+        curl -sSL https://install.python-poetry.org | pyenv exec python -
+        # bin
+        echo "export PATH=\"\$HOME/.local/bin:\$PATH\"" >> ~/.bash_profile
+        echo "export POETRY_VIRTUALENVS_IN_PROJECT=true" >> ~/.bash_profile
+        echo "export POETRY_VIRTUALENVS_PREFER_ACTIVE_PYTHON=true" >> ~/.bash_profile
         '''
     )
     c.run(_sh)

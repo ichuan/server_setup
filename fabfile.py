@@ -423,8 +423,9 @@ def _setup_debian(c):
     c.sudo(
         'apt-get install -yq git unzip curl wget tar sudo zip '
         'sqlite3 tmux ntp build-essential gettext libcap2-bin netcat '
-        'silversearcher-ag htop jq python2 dirmngr cron rsync locales'
+        'silversearcher-ag htop jq dirmngr cron rsync locales'
     )
+    c.sudo('apt install -yq python2', warn=True)
     c.sudo('systemctl enable ntp.service')
     c.sudo('systemctl start ntp.service')
     # add-apt-repository
@@ -480,6 +481,10 @@ def _setup_python(c):
                 r'>> ~/.bash_profile'
             )
     # c.run('pyenv install 2.7.18')
+    # c.run(
+    #     'mkdir -p ~/.pyenv/cache && cd ~/.pyenv/cache && '
+    #     'wget https://registry.npmmirror.com/-/binary/python/3.10.5/Python-3.10.5.tar.xz'
+    # )
     c.run('source ~/.bash_profile && pyenv install 3.10:latest')
     # _setup_pipenv(c)
     _setup_poetry(c)

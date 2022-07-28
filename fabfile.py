@@ -473,7 +473,9 @@ def _setup_python(c):
             'libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev libffi-dev '
             'libreadline-dev liblzma-dev'
         )
-        if not c.run('grep -q pyenv ~/.bash_profile').ok:
+        if c.run('test -f ~/.bash_profile && grep -q pyenv ~/.bash_profile').ok:
+            pass
+        else:
             c.run(
                 r'echo -e "export PYENV_ROOT=\"\$HOME/.pyenv\"\n'
                 r'export PATH=\"\$PYENV_ROOT/bin:\$PATH\"\n'
@@ -485,7 +487,7 @@ def _setup_python(c):
     #     'mkdir -p ~/.pyenv/cache && cd ~/.pyenv/cache && '
     #     'wget https://registry.npmmirror.com/-/binary/python/3.10.5/Python-3.10.5.tar.xz'
     # )
-    c.run('source ~/.bash_profile && pyenv install 3.10:latest')
+    c.run('source ~/.bash_profile && pyenv install 3.10:latest', warn=True)
     # _setup_pipenv(c)
     _setup_poetry(c)
 
